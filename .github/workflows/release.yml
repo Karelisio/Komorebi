@@ -75,7 +75,8 @@ jobs:
         run: npm test
 
       - name: Version depuis le tag
-        run: node scripts/version-from-tag.mjs
+        # GITHUB_REF_NAME ne peut pas être surchargé via `env:` : on le fixe pour le processus
+        run: GITHUB_REF_NAME="$RELEASE_TAG" node scripts/version-from-tag.mjs
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
 
