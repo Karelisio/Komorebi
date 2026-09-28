@@ -9,7 +9,7 @@ import { useDebug } from '@/engine/debug';
 import { startNotifications } from '@/engine/notifications';
 import { checkDaily, onNatureEvent, progressTick } from '@/engine/progress';
 import { runtimeRef } from '@/engine/runtimeRef';
-import { t } from '@/i18n';
+import { setLang, t } from '@/i18n';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { applyTheme, watchSystemTheme } from '@/theme/theme';
@@ -76,6 +76,8 @@ export function App() {
   const [sceneReady, setSceneReady] = useState(false);
   const theme = useSettings((s) => s.theme);
   const keepAwake = useSettings((s) => s.keepAwake);
+  const lang = useSettings((s) => s.lang);
+  useEffect(() => setLang(lang), [lang]);
 
   useEffect(() => {
     void boot().then(() => {
@@ -136,11 +138,14 @@ export function App() {
           }}
         />
       )}
-      {sceneReady && <Hud />}
-      {sceneReady && <Tutorial />}
-      <ModeOverlay />
-      <Sheets />
-      <Toast />
+      {/* Clé sur la langue : l'interface se re-rend, la scène reste en place */}
+      <div key={lang} style={{ display: 'contents' }}>
+        {sceneReady && <Hud />}
+        {sceneReady && <Tutorial />}
+        <ModeOverlay />
+        <Sheets />
+        <Toast />
+      </div>
       <Fps />
       <div className={`splash${sceneReady ? ' gone' : ''}`}>
         <h1>{t('app.name')}</h1>

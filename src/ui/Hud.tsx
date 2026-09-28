@@ -1,5 +1,5 @@
 import { confirmPlacement } from '@/engine/controller';
-import { t } from '@/i18n';
+import { getLang, t } from '@/i18n';
 import { useGame } from '@/state/game';
 import { setTool, useUi, type Tool } from '@/state/ui';
 import { useWorld } from '@/state/world';
@@ -30,10 +30,13 @@ function Status() {
         : WEATHER_ICON[weather.kind]
       : WEATHER_ICON[weather.kind];
   const I = Icon[icon];
-  const time = new Date(useWorld.getState().time).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const time = new Date(useWorld.getState().time).toLocaleTimeString(
+    getLang() === 'fr' ? 'fr-FR' : 'en-GB',
+    {
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  );
   return (
     <div className="status glass" aria-live="polite">
       <I />

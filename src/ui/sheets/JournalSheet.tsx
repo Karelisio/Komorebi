@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { runtimeRef } from '@/engine/runtimeRef';
 import { CATALOG_IDS } from '@/garden/catalog';
 import { OBJECTIVES } from '@/garden/progression';
-import { t } from '@/i18n';
+import { getLang, t } from '@/i18n';
 import { express, randomGenome, VARIETIES, type Variety } from '@/pond/genetics';
 import { drawKoiCanvas } from '@/render/koiTexture';
 import { thumbnail } from '@/render/thumbnails';
@@ -77,7 +77,10 @@ function MemoriesTab() {
           <span>
             {describeEntry(e)}
             <span className="sub">
-              {new Date(e.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+              {new Date(e.at).toLocaleDateString(getLang() === 'fr' ? 'fr-FR' : 'en-GB', {
+                day: 'numeric',
+                month: 'short',
+              })}
             </span>
           </span>
         </div>
