@@ -12,6 +12,7 @@ uniform sampler2D uKoi;
 uniform sampler2D uBed;
 uniform sampler2D uRefl;
 uniform float uReflStrength;
+uniform vec3 uGlint;
 
 uniform vec3 uSkyTop;
 uniform vec3 uSkyHorizon;
@@ -41,8 +42,10 @@ void main() {
   vec2 slope = (hv.gb - 0.5) * 2.0;
 
   // Micro-ondulations dues au vent
-  vec2 wp = vPos * 0.045;
-  vec2 wind = vec2(vnoise(wp + vec2(uTime * 0.35, 0.0)) - 0.5, vnoise(wp * 1.3 + vec2(7.0, uTime * 0.28)) - 0.5);
+  vec2 wp = mat2(0.8, -0.6, 0.6, 0.8) * vPos * 0.045;
+  vec2 wp2 = mat2(0.6, 0.8, -0.8, 0.6) * vPos * 0.083;
+  vec2 wind = vec2(vnoise(wp + vec2(uTime * 0.35, 0.0)) + vnoise(wp2 + vec2(3.1, uTime * 0.5)) * 0.6,
+                   vnoise(wp * 1.3 + vec2(7.0, uTime * 0.28)) + vnoise(wp2 * 1.2 - vec2(uTime * 0.42, 1.7)) * 0.6) / 1.6 - 0.5;
   vec3 n = normalize(vec3(slope * 1.8 + wind * (0.08 + uWind * 0.35), 1.0));
 
   // Fond et absorption : le fond n'est visible que près des berges
@@ -103,7 +106,22 @@ void main() {
   vec3 v = vec3(0.0, 0.57, 0.82);
   vec3 hs = normalize(uSunDir + v);
   float spec = pow(max(dot(n, hs), 0.0), 420.0);
-  col += uSunCol * spec * uSunStrength * 2.4;
+  // Le reflet du soleil se concentre dans une colonne dirigée vers lui
+  float gdx = (vUV.x - uGlint.x + n.x * 0.08) / (uGlint.y * 1.4);
+  spec *= 0.12 + 0.88 * exp(-gdx * gdx);
+  col += uSunCol * spec * uSunStrength * 1.5;
+  // Chemin de scintillements : paillettes nettes qui s'allument et s'éteignent, en colonne vers le soleil
+  if (uGlint.z > 0.01) {
+    float dx = (vUV.x - uGlint.x + n.x * 0.08) / uGlint.y;
+    float path = exp(-dx * dx) * (0.6 + 0.4 * (1.0 - vUV.y)) + 0.1;
+    vec2 gp = (vPos + n.xy * 30.0) * vec2(0.16, 0.3);
+    vec2 cell = floor(gp);
+    vec2 h = hash22(cell);
+    vec2 d = (fract(gp) - 0.2 - h * 0.6) * vec2(1.0, 1.6);
+    float tw = pow(max(0.0, sin(uTime * (1.5 + h.x * 2.5) + h.y * 40.0)), 6.0);
+    float star = smoothstep(0.16, 0.0, length(d)) * tw * step(0.45 - path * 0.3, h.x);
+    col += mix(uSunCol, vec3(1.0), 0.5) * star * min(1.0, path) * uGlint.z * 2.5 * smoothstep(0.05, 0.2, depth);
+  }
   vec3 hm = normalize(uMoonDir + v);
   col += vec3(0.75, 0.82, 1.0) * pow(max(dot(n, hm), 0.0), 260.0) * uMoonStrength * 1.2;
 

@@ -520,6 +520,14 @@ export class Scene {
       setVec(wu.uSunCol, L.sunColor);
       setVec(wu.uSunDir, sunDir);
       wu.uSunStrength = L.sunStrength * clamp(sky.sunAltitude / 4);
+      // Colonne de scintillements vers le soleil (plus marquée quand il est bas et devant)
+      const front = clamp(1 - (Math.abs(sunS.d) - 50) / 50);
+      const low = 0.35 + 0.65 * clamp(1 - sky.sunAltitude / 45);
+      setVec(wu.uGlint, [
+        clamp(0.5 + (sunS.d / 70) * 0.55, -0.2, 1.2),
+        0.07 + 0.1 * clamp(sky.sunAltitude / 40),
+        L.sunStrength * clamp(sky.sunAltitude / 5) * (1 - L.overcast) * (0.25 + 0.75 * front) * low,
+      ]);
       setVec(wu.uMoonDir, moonDir);
       wu.uMoonStrength = L.moonStrength;
       setVec(wu.uTreeCol, treeCol);

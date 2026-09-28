@@ -140,6 +140,7 @@ export class PondView {
         uLantern: { type: 'vec4<f32>', value: vec4() },
         uQuality: { type: 'f32', value: quality.level },
         uReflStrength: { type: 'f32', value: this.reflEnabled ? 1 : 0 },
+        uGlint: { type: 'vec3<f32>', value: vec3() },
       },
     });
     this.container.addChild(this.water.mesh, drawPondRim(shape, shape.cx | 0), this.surface);
