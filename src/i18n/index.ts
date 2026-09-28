@@ -1,10 +1,10 @@
 import { en } from './en';
 import { fr } from './fr';
-import type { Dictionary, Lang, TKey } from './types';
+import type { Lang, TKey } from './types';
 
 export type { Lang, TKey } from './types';
 
-const dictionaries: Record<Lang, Dictionary> = { fr, en };
+const dictionaries: Record<Lang, unknown> = { fr, en };
 
 let current: Lang = 'fr';
 
@@ -26,7 +26,7 @@ export function detectLang(): Lang {
       : 'fr';
 }
 
-function lookup(dict: Dictionary, key: string): string | undefined {
+function lookup(dict: unknown, key: string): string | undefined {
   let node: unknown = dict;
   for (const part of key.split('.')) {
     if (node && typeof node === 'object' && part in node) {

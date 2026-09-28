@@ -1,86 +1,43 @@
 import { useEffect, useRef } from 'react';
-import { clock } from '@/engine/clock';
-import { seasonDate, useDebug } from '@/engine/debug';
-import { computeEnv } from '@/engine/environment';
-import { KoiSystem } from '@/render/KoiSystem';
-import { LilySystem } from '@/render/LilySystem';
-import { Scene } from '@/render/Scene';
-import { useWorld } from '@/state/world';
-import { CLEAR_WEATHER, weatherPreset } from '@/world/weatherTypes';
+import { startRuntime, type Runtime, type RuntimeHooks } from '@/engine/runtime';
 
-export function SceneHost({ onReady }: { onReady?: (scene: Scene) => void }) {
+export function SceneHost({
+  onReady,
+  hooks,
+}: {
+  onReady?: (rt: Runtime) => void;
+  hooks?: RuntimeHooks;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const hooksRef = useRef(hooks);
+  const readyRef = useRef(onReady);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    let scene: Scene | null = null;
+    let rt: Runtime | null = null;
     let disposed = false;
-    let timer: ReturnType<typeof setInterval> | undefined;
-
-    void Scene.create(host, 'high').then((s) => {
+    void startRuntime(host, {
+      onFeed: () => hooksRef.current?.onFeed?.(),
+      onWaterTouch: () => hooksRef.current?.onWaterTouch?.(),
+      onRake: (d) => hooksRef.current?.onRake?.(d),
+      onHarvest: (n) => hooksRef.current?.onHarvest?.(n),
+      onInteract: () => hooksRef.current?.onInteract?.(),
+      onNature: (e) => hooksRef.current?.onNature?.(e),
+      onTick: (now) => hooksRef.current?.onTick?.(now),
+    }).then((r) => {
       if (disposed) {
-        s.destroy();
+        r.destroy();
         return;
       }
-      scene = s;
-      const refresh = () => {
-        const now = clock.date();
-        const dbg = useDebug.getState();
-        const { location } = useWorld.getState();
-        const env = computeEnv(
-          now,
-          location,
-          dbg.weather ? weatherPreset(dbg.weather) : CLEAR_WEATHER,
-          dbg.season ? seasonDate(dbg.season, now) : undefined,
-        );
-        s.setEnv(env);
-        useWorld.setState({
-          time: now.getTime(),
-          sky: env.sky,
-          lighting: env.lighting,
-          season: env.season,
-          nature: env.nature,
-        });
-      };
-      refresh();
-      timer = setInterval(refresh, 1000);
-      const kois = new KoiSystem(s.ponds, true);
-      if (useDebug.getState().enabled) Object.assign(window, { __scene: s, __kois: kois });
-      s.addSystem(kois);
-      s.addSystem(new LilySystem(s.ponds));
-      s.bindGestures({
-        down: (p) => {
-          const w = s.screenToWorld(p);
-          s.pondAt(w.x, w.y)?.touch(w.x, w.y, 1.2);
-        },
-        tap: (p) => {
-          const w = s.screenToWorld(p);
-          kois.feedAt(w.x, w.y);
-        },
-        hover: (p) => {
-          if (!p) return kois.clearAttractor();
-          const w = s.screenToWorld(p);
-          kois.setAttractor(w.x, w.y);
-        },
-        pan: (dx, dy, dt) => s.camera.panBy(dx, dy, dt),
-        panStart: () => s.camera.beginDrag(),
-        panEnd: () => s.camera.endDrag(),
-        pinch: (f, c) => s.camera.zoomAt(f, c.x, c.y),
-        wheel: (f, c) => s.camera.zoomAt(f, c.x, c.y),
-      });
-      const cam = useDebug.getState().camera;
-      if (cam) s.camera.lookAt(cam.x, cam.y, (s.width / 760) * cam.zoom);
-      s.start();
-      onReady?.(s);
+      rt = r;
+      readyRef.current?.(r);
     });
-
     return () => {
       disposed = true;
-      if (timer) clearInterval(timer);
-      scene?.destroy();
+      rt?.destroy();
     };
-  }, [onReady]);
+  }, []);
 
   return <div ref={hostRef} className="scene-host" />;
 }

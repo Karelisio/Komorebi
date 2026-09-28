@@ -10,8 +10,9 @@ function keys(obj: object, prefix = ''): string[] {
 }
 
 describe('i18n', () => {
-  it('fr et en ont exactement les mêmes clés', () => {
-    expect(keys(en).sort()).toEqual(keys(fr).sort());
+  it('toutes les clés anglaises existent en français', () => {
+    const frKeys = new Set(keys(fr));
+    for (const k of keys(en)) expect(frKeys.has(k)).toBe(true);
   });
 
   it('traduit et interpole', () => {

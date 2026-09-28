@@ -12,13 +12,12 @@ applyUrlDebug(window.location.search);
 const root = document.getElementById('root');
 if (!root) throw new Error('#root introuvable');
 
-if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('koitex')) {
-  if (new URLSearchParams(window.location.search).has('koitex')) {
-    void import('./ui/devKoiTextures').then((m) => m.renderKoiSheet(root));
-  }
-}
-
-if (!new URLSearchParams(window.location.search).has('koitex'))
+const params = new URLSearchParams(window.location.search);
+// Planches de debug (développement et captures)
+if (params.has('koitex')) void import('./ui/devKoiTextures').then((m) => m.renderKoiSheet(root));
+else if (params.has('decor'))
+  void import('./ui/devDecorSheet').then((m) => m.renderDecorSheet(root));
+else
   createRoot(root).render(
     <StrictMode>
       <App />

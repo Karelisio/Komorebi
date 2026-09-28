@@ -95,8 +95,9 @@ export class Scene {
   readonly vignette: Sprite;
   private readonly systems: SceneSystem[] = [];
   private readonly fixedTrees: FixedTree[] = [];
+  fixedCanopies: (readonly [number, number, number, number])[] = [];
   private gestures: GestureController | null = null;
-  private env: SceneEnv | null = null;
+  env: SceneEnv | null = null;
   private baseZoom = 1;
   private time = 0;
   private flash = 0;
@@ -210,12 +211,11 @@ export class Scene {
       this.objects.addChild(g);
       this.fixedTrees.push({ g, look, key: '', phase: i * 1.7 });
     });
-    this.ground.setCanopies(
-      specs.map((look, i) => {
-        const p = positions[i]!;
-        return [p.x + 20, p.y + 10, look.height * 0.5, look.height * 0.22] as const;
-      }),
-    );
+    this.fixedCanopies = specs.map((look, i) => {
+      const p = positions[i]!;
+      return [p.x + 20, p.y + 10, look.height * 0.5, look.height * 0.22] as const;
+    });
+    this.ground.setCanopies(this.fixedCanopies);
   }
 
   setQuality(level: QualityLevel): void {
@@ -264,6 +264,11 @@ export class Scene {
 
   stop(): void {
     this.loop.stop();
+  }
+
+  /** Ordonnée écran d'un point de la couche lointaine (ciel, oiseaux). */
+  skyToScreenY(worldY: number): number {
+    return this.farLayer.position.y + worldY * this.farLayer.scale.y;
   }
 
   /** Transforme une couche parallax : f = 1 suit la caméra, f < 1 défile moins vite. */

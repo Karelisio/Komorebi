@@ -1,7 +1,7 @@
 import { mulberry32 } from '@/world/random';
 
 /** Dimensions du monde (unités monde ≈ px à zoom 1). */
-export const WORLD = { width: 1200, height: 2100, horizon: 520 } as const;
+export const WORLD = { width: 1200, height: 2400, horizon: 520 } as const;
 
 /** Vue par défaut : centre et largeur visible. */
 export const DEFAULT_VIEW = { x: 600, y: 930, width: 760 } as const;
@@ -74,4 +74,4 @@ export function pondDepthAt(shape: PondShape, p: Point): number {
 }
 
 export const MAIN_POND = makePondShape('main', 600, 1190, 330, 205, 7);
-export const SECOND_POND = makePondShape('second', 320, 1800, 200, 120, 13);
+export const SECOND_POND = makePondShape('second', 360, 1690, 215, 118, 13);

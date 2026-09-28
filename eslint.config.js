@@ -30,4 +30,5 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },
+  { files: ['src/ui/components.tsx', 'src/ui/icons.tsx'], rules: { 'react-refresh/only-export-components': 'off' } },
 );
