@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+.env*
+*.keystore
+*.jks
+keystore.properties
+android/app/release
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+.idea
