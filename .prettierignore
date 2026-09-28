@@ -1,0 +1,6 @@
+dist
+android
+node_modules
+package-lock.json
+resources
+coverage

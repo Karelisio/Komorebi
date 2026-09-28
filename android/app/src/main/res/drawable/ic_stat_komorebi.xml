@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de notification (barre de statut) : feuille stylisée, silhouette
+     monochrome pleine (+ nervure en trait) sur fond transparent — conforme
+     aux règles Android pour les icônes de notification (rendu en aplat blanc
+     par le système, quelle que soit la couleur ici). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <!-- Contour de la feuille. -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,3
+            C17,5 20,8.5 20,12
+            C20,16.5 16.5,20 12,21
+            C7.5,20 4,16.5 4,12
+            C4,8.5 7,5 12,3
+            Z" />
+    <!-- Nervure centrale. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.2"
+        android:pathData="M12,6 L12,19" />
+</vector>
