@@ -89,9 +89,9 @@ interface Key {
 }
 
 const MORNING: Key[] = [
-  { alt: -18, top: '#070b1c', horizon: '#141a36', ambient: '#3d4a78', sun: '#000000' },
-  { alt: -12, top: '#0e1533', horizon: '#26305a', ambient: '#48548a', sun: '#000000' },
-  { alt: -6, top: '#1c2958', horizon: '#6a6f9c', ambient: '#6a73a4', sun: '#553344' },
+  { alt: -18, top: '#0a1024', horizon: '#18214a', ambient: '#56689e', sun: '#000000' },
+  { alt: -12, top: '#101a3c', horizon: '#2a3666', ambient: '#5c6ca6', sun: '#000000' },
+  { alt: -6, top: '#1c2958', horizon: '#6a6f9c', ambient: '#7680b0', sun: '#553344' },
   { alt: -2, top: '#35467c', horizon: '#e0a3a8', ambient: '#a08aa6', sun: '#ff9c8a' },
   { alt: 2, top: '#6589bf', horizon: '#f7c9a0', ambient: '#e2b8a4', sun: '#ffc48e' },
   { alt: 8, top: '#78a4d6', horizon: '#f4dcb8', ambient: '#f4dcc4', sun: '#ffe0b0' },
@@ -100,9 +100,9 @@ const MORNING: Key[] = [
 ];
 
 const EVENING: Key[] = [
-  { alt: -18, top: '#070b1c', horizon: '#141a36', ambient: '#3d4a78', sun: '#000000' },
-  { alt: -12, top: '#0f1636', horizon: '#2a2f5e', ambient: '#4a5290', sun: '#000000' },
-  { alt: -6, top: '#1f2a5e', horizon: '#6e5c8c', ambient: '#6c6aa0', sun: '#6a3050' },
+  { alt: -18, top: '#0a1024', horizon: '#18214a', ambient: '#56689e', sun: '#000000' },
+  { alt: -12, top: '#111a3e', horizon: '#2e3468', ambient: '#5e6aa8', sun: '#000000' },
+  { alt: -6, top: '#1f2a5e', horizon: '#6e5c8c', ambient: '#7a78ac', sun: '#6a3050' },
   { alt: -2, top: '#3a3d74', horizon: '#f08c62', ambient: '#b48a96', sun: '#ff8050' },
   { alt: 2, top: '#6078b0', horizon: '#f8a868', ambient: '#eeb088', sun: '#ffa860' },
   { alt: 8, top: '#74a0d4', horizon: '#f6cf9a', ambient: '#f8d8b4', sun: '#ffd49a' },

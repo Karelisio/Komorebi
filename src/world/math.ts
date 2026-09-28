@@ -34,3 +34,20 @@ export function dayOfYear(date: Date): number {
   const start = Date.UTC(date.getUTCFullYear(), 0, 1);
   return Math.floor((date.getTime() - start) / 86_400_000);
 }
+
+export function mulRgb(a: RGB, b: RGB): RGB {
+  return [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
+}
+
+export function scaleRgb(a: RGB, k: number): RGB {
+  return [a[0] * k, a[1] * k, a[2] * k];
+}
+
+export function luma(c: RGB): number {
+  return c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
+}
+
+export function desaturate(c: RGB, t: number): RGB {
+  const l = luma(c);
+  return mixRgb(c, [l, l, l], t);
+}
