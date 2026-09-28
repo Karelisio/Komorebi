@@ -398,14 +398,14 @@ export function paintBed(shape: PondShape, texW = 512): Texture {
   }
   // Galets le long du bord
   const pts = shape.points;
-  for (let i = 0; i < 900; i++) {
+  for (let i = 0; i < 520; i++) {
     const p = pts[Math.floor(rng() * pts.length)]!;
-    const t = Math.pow(rng(), 1.8) * 0.45;
+    const t = Math.pow(rng(), 2.4) * 0.35;
     const x = (p.x + (shape.cx - p.x) * t - bbox.x) * sx;
     const y = (p.y + (shape.cy - p.y) * t - bbox.y) * sy;
     const r = 2 + rng() * rng() * 9;
     const tone = ['#a39c86', '#8e8a78', '#bcb39a', '#6f6d62', '#9b8a6a'][Math.floor(rng() * 5)]!;
-    wash(ctx, x, y, r, r * (0.6 + rng() * 0.3), tone, 0.5 + rng() * 0.4, rng, 0.6);
+    wash(ctx, x, y, r, r * (0.6 + rng() * 0.3), tone, 0.3 + rng() * 0.35, rng, 0.5);
   }
   // Quelques grosses pierres immergées
   for (let i = 0; i < 7; i++) {

@@ -200,7 +200,7 @@ export class Canopy {
     this.leafLayer.removeChildren().forEach((c) => c.destroy());
     this.leaves = [];
     const rng = mulberry32(42);
-    const bark = 0x2b2320;
+    const bark = 0x4a3a2e;
     const tips: { x: number; y: number }[] = [];
     // Branche organique qui entre par le coin supérieur gauche
     const limb = (

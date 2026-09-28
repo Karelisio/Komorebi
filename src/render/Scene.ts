@@ -115,7 +115,7 @@ export class Scene {
     this.objects.sortableChildren = true;
     this.canopy = new Canopy(tex.maple);
     this.fgLayer.addChild(this.canopy.container);
-    this.light = new LightLayer(this.screenFx, this.screenFx);
+    this.light = new LightLayer(this.screenFx, this.screenFx, this.overlay);
     this.vignette = new Sprite(tex.vignette);
     this.overlay.addChild(this.vignette);
     this.stage.addChild(
@@ -440,7 +440,17 @@ export class Scene {
     f.uTime = t;
     f.uHorizon = -9999;
     this.light.fog.mesh.visible = L.fog > 0.02;
-    this.vignette.alpha = 0.7 + L.night * 0.3;
+    const dp = this.light.dapple.u;
+    dp.uTime = t;
+    dp.uWind = L.wind;
+    dp.uSun = L.sunStrength * (0.4 + 0.6 * season.foliage);
+    setVec(dp.uSunCol, L.sunColor);
+    this.light.dapple.mesh.visible = dp.uSun > 0.02;
+    const pp = this.light.paper.u;
+    pp.uTime = t;
+    pp.uWind = L.wind;
+    pp.uShade = (0.35 + 0.65 * season.foliage) * (0.4 + 0.6 * L.sunStrength);
+    this.vignette.alpha = 0.35 + L.night * 0.5;
 
     const r0 = PROFILE ? performance.now() : 0;
     this.renderer.render(this.stage);

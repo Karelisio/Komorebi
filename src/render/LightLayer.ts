@@ -1,6 +1,7 @@
 import type { Container } from 'pixi.js';
 import { createShaderMesh, setQuad, setVec, vec2, vec3 } from './gl';
 import { FOG_FRAGMENT, LIGHT_FRAGMENT } from './shaders/light';
+import { DAPPLE_FRAGMENT, PAPER_FRAGMENT } from './shaders/paper';
 
 export class LightLayer {
   readonly rays = createShaderMesh({
@@ -30,16 +31,45 @@ export class LightLayer {
     },
   });
 
-  constructor(raysParent: Container, fogParent: Container) {
+  /** Taches de soleil sous le feuillage. */
+  readonly dapple = createShaderMesh({
+    name: 'dapple',
+    fragment: DAPPLE_FRAGMENT,
+    uniforms: {
+      uScreen: { type: 'vec2<f32>', value: vec2(1, 1) },
+      uTime: { type: 'f32', value: 0 },
+      uWind: { type: 'f32', value: 0 },
+      uSun: { type: 'f32', value: 0 },
+      uSunCol: { type: 'vec3<f32>', value: vec3(1, 1, 1) },
+    },
+  });
+
+  /** Papier aquarelle, ombre du feuillage et vignette (multiply). */
+  readonly paper = createShaderMesh({
+    name: 'paper',
+    fragment: PAPER_FRAGMENT,
+    uniforms: {
+      uScreen: { type: 'vec2<f32>', value: vec2(1, 1) },
+      uTime: { type: 'f32', value: 0 },
+      uWind: { type: 'f32', value: 0 },
+      uShade: { type: 'f32', value: 1 },
+      uGrain: { type: 'f32', value: 1 },
+    },
+  });
+
+  constructor(raysParent: Container, fogParent: Container, paperParent: Container) {
     this.rays.mesh.blendMode = 'add';
-    raysParent.addChild(this.rays.mesh);
+    this.dapple.mesh.blendMode = 'add';
+    this.paper.mesh.blendMode = 'multiply';
+    raysParent.addChild(this.dapple.mesh, this.rays.mesh);
     fogParent.addChild(this.fog.mesh);
+    paperParent.addChild(this.paper.mesh);
   }
 
   resize(w: number, h: number): void {
-    setQuad(this.rays.mesh.geometry, 0, 0, w, h);
-    setQuad(this.fog.mesh.geometry, 0, 0, w, h);
-    setVec(this.rays.u.uScreen, [w, h]);
-    setVec(this.fog.u.uScreen, [w, h]);
+    for (const m of [this.rays, this.fog, this.dapple, this.paper]) {
+      setQuad(m.mesh.geometry, 0, 0, w, h);
+      setVec(m.u.uScreen, [w, h]);
+    }
   }
 }
