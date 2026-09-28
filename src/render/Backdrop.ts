@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, type Texture } from 'pixi.js';
 import { hexToRgb, mixRgb, mulRgb, rgbToHex, type RGB } from '@/world/math';
 import { mulberry32 } from '@/world/random';
 import type { SeasonState } from '@/world/season';
-import { WORLD } from './layout';
+import { WORLD } from '@/world/layout';
 
 function ridge(g: Graphics, seed: number, base: number, amp: number, x0: number, x1: number): void {
   const rng = mulberry32(seed);

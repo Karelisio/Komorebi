@@ -21,7 +21,7 @@ import type { WeatherState } from '@/world/weatherTypes';
 import { Canopy, GardenWall, Mountains } from './Backdrop';
 import { setQuad, setVec } from './gl';
 import { GroundView } from './GroundView';
-import { DEFAULT_VIEW, MAIN_POND, WORLD } from './layout';
+import { DEFAULT_VIEW, MAIN_POND, WORLD } from '@/world/layout';
 import { LightLayer } from './LightLayer';
 import { PondView } from './PondView';
 import { QUALITY, type QualityLevel, type QualityProfile } from './quality';

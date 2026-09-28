@@ -14,3 +14,4 @@ android/app/build
 android/local.properties
 .idea
 shots
+scripts/dev

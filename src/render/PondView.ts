@@ -1,15 +1,8 @@
-import type {
-  Texture} from 'pixi.js';
-import {
-  BufferImageSource,
-  Container,
-  Geometry,
-  RenderTexture,
-  type Renderer,
-} from 'pixi.js';
+import type { Texture } from 'pixi.js';
+import { BufferImageSource, Container, Geometry, RenderTexture, type Renderer } from 'pixi.js';
 import { RippleField } from '@/pond/ripples';
 import { createShaderMesh, vec3, vec4 } from './gl';
-import { pointInPolygon, type PondShape } from './layout';
+import { pointInPolygon, type PondShape } from '@/world/layout';
 import { drawPondRim } from './PondRim';
 import { WATER_FRAGMENT } from './shaders/water';
 

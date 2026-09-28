@@ -1,7 +1,7 @@
 import { Graphics } from 'pixi.js';
 import { hexToRgb, mixRgb, rgbToHex } from '@/world/math';
 import { mulberry32 } from '@/world/random';
-import type { PondShape } from './layout';
+import type { PondShape } from '@/world/layout';
 
 /** Berge : bande de mousse, galets et quelques rochers, dessinés au-dessus du bord de l'eau. */
 export function drawPondRim(shape: PondShape, seed = 1): Graphics {

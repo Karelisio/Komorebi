@@ -19,7 +19,7 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
   low: {
     maxResolution: 1,
     rippleGrid: 64,
-    koiResolution: 0.5,
+    koiResolution: 0.8,
     level: 0,
     skyOctaves: 2,
     rays: true,
@@ -28,7 +28,7 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
   medium: {
     maxResolution: 1.5,
     rippleGrid: 96,
-    koiResolution: 0.75,
+    koiResolution: 1.25,
     level: 1,
     skyOctaves: 3,
     rays: true,
@@ -37,7 +37,7 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
   high: {
     maxResolution: 2,
     rippleGrid: 128,
-    koiResolution: 1,
+    koiResolution: 2,
     level: 2,
     skyOctaves: 4,
     rays: true,

@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { clock } from '@/engine/clock';
 import { seasonDate, useDebug } from '@/engine/debug';
 import { computeEnv } from '@/engine/environment';
+import { KoiSystem } from '@/render/KoiSystem';
+import { LilySystem } from '@/render/LilySystem';
 import { Scene } from '@/render/Scene';
 import { useWorld } from '@/state/world';
 import { CLEAR_WEATHER, weatherPreset } from '@/world/weatherTypes';
@@ -43,10 +45,23 @@ export function SceneHost({ onReady }: { onReady?: (scene: Scene) => void }) {
       };
       refresh();
       timer = setInterval(refresh, 1000);
+      const kois = new KoiSystem(s.ponds, true);
+      if (useDebug.getState().enabled) Object.assign(window, { __scene: s, __kois: kois });
+      s.addSystem(kois);
+      s.addSystem(new LilySystem(s.ponds));
       s.bindGestures({
         down: (p) => {
           const w = s.screenToWorld(p);
           s.pondAt(w.x, w.y)?.touch(w.x, w.y, 1.2);
+        },
+        tap: (p) => {
+          const w = s.screenToWorld(p);
+          kois.feedAt(w.x, w.y);
+        },
+        hover: (p) => {
+          if (!p) return kois.clearAttractor();
+          const w = s.screenToWorld(p);
+          kois.setAttractor(w.x, w.y);
         },
         pan: (dx, dy, dt) => s.camera.panBy(dx, dy, dt),
         panStart: () => s.camera.beginDrag(),
@@ -54,6 +69,8 @@ export function SceneHost({ onReady }: { onReady?: (scene: Scene) => void }) {
         pinch: (f, c) => s.camera.zoomAt(f, c.x, c.y),
         wheel: (f, c) => s.camera.zoomAt(f, c.x, c.y),
       });
+      const cam = useDebug.getState().camera;
+      if (cam) s.camera.lookAt(cam.x, cam.y, (s.width / 760) * cam.zoom);
       s.start();
       onReady?.(s);
     });

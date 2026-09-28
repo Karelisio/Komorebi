@@ -8,6 +8,8 @@ export interface DebugState {
   season: Season | null;
   weather: WeatherKind | null;
   showFps: boolean;
+  /** Caméra forcée (captures). */
+  camera: { x: number; y: number; zoom: number } | null;
 }
 
 export const useDebug = create<DebugState>(() => ({
@@ -15,6 +17,7 @@ export const useDebug = create<DebugState>(() => ({
   season: null,
   weather: null,
   showFps: false,
+  camera: null,
 }));
 
 /** Date représentative d'une saison forcée (on garde l'heure courante). */
@@ -43,5 +46,12 @@ export function applyUrlDebug(search: string): void {
     season: season && ['spring', 'summer', 'autumn', 'winter'].includes(season) ? season : null,
     weather: weather ?? null,
     showFps: q.get('fps') === '1',
+    camera: q.get('zoom')
+      ? {
+          x: Number(q.get('cx') ?? 600),
+          y: Number(q.get('cy') ?? 1190),
+          zoom: Number(q.get('zoom')),
+        }
+      : null,
   });
 }

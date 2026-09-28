@@ -12,8 +12,15 @@ applyUrlDebug(window.location.search);
 const root = document.getElementById('root');
 if (!root) throw new Error('#root introuvable');
 
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('koitex')) {
+  if (new URLSearchParams(window.location.search).has('koitex')) {
+    void import('./ui/devKoiTextures').then((m) => m.renderKoiSheet(root));
+  }
+}
+
+if (!new URLSearchParams(window.location.search).has('koitex'))
+  createRoot(root).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );

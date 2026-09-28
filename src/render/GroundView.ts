@@ -1,6 +1,6 @@
 import type { Container, Texture } from 'pixi.js';
 import { createShaderMesh, quadGeometry, vec2, vec3 } from './gl';
-import { WORLD } from './layout';
+import { WORLD } from '@/world/layout';
 import { GROUND_FRAGMENT } from './shaders/ground';
 
 export class GroundView {
