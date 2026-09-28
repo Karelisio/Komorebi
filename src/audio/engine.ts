@@ -37,12 +37,7 @@ class AudioEngine {
     if (this.started) return;
     this.started = true;
     Howler.autoUnlock = true;
-    const ctx = Howler.ctx;
-    if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
-    this.sfxGain = ctx.createGain();
-    this.sfxGain.connect(Howler.masterGain);
-    this.music = new GenerativeMusic(ctx, Howler.masterGain);
-    // Génération étalée pour ne pas bloquer l'interface
+    // Les ambiances d'abord : leur création initialise le contexte Web Audio de Howler.
     const ids = Object.keys(AMBIENT_SYNTH) as AmbientId[];
     for (const id of ids) {
       await new Promise((r) => setTimeout(r, 30));
@@ -52,11 +47,18 @@ class AudioEngine {
       h.play();
       this.ambients.set(id, h);
     }
-    for (const id of Object.keys(SFX_SYNTH) as SfxId[]) {
-      const data = SFX_SYNTH[id]();
-      const buf = ctx.createBuffer(1, data.length, SR);
-      buf.getChannelData(0).set(data);
-      this.sfx.set(id, buf);
+    const ctx = Howler.ctx as AudioContext | null;
+    if (ctx) {
+      if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
+      this.sfxGain = ctx.createGain();
+      this.sfxGain.connect(Howler.masterGain);
+      this.music = new GenerativeMusic(ctx, Howler.masterGain);
+      for (const id of Object.keys(SFX_SYNTH) as SfxId[]) {
+        const data = SFX_SYNTH[id]();
+        const buf = ctx.createBuffer(1, data.length, SR);
+        buf.getChannelData(0).set(data);
+        this.sfx.set(id, buf);
+      }
     }
     this.applyMix();
   }
@@ -113,8 +115,8 @@ class AudioEngine {
 
   play(id: SfxId, volume = 1, rate = 1): void {
     const buf = this.sfx.get(id);
-    if (!buf || !this.sfxGain) return;
-    const ctx = Howler.ctx;
+    const ctx = Howler.ctx as AudioContext | null;
+    if (!buf || !this.sfxGain || !ctx) return;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.playbackRate.value = rate;
@@ -143,11 +145,11 @@ class AudioEngine {
   }
 
   suspend(): void {
-    if (this.started) void Howler.ctx.suspend();
+    if (this.started) void (Howler.ctx as AudioContext | null)?.suspend();
   }
 
   resume(): void {
-    if (this.started) void Howler.ctx.resume();
+    if (this.started) void (Howler.ctx as AudioContext | null)?.resume();
   }
 }
 

@@ -6,6 +6,7 @@ import { Scene } from '@/render/Scene';
 import { WeatherSystem, type NatureEvent } from '@/render/WeatherSystem';
 import { ZoneSystem } from '@/render/ZoneSystem';
 import { useGame } from '@/state/game';
+import { useUi } from '@/state/ui';
 import { useSettings } from '@/state/settings';
 import { useWorld } from '@/state/world';
 import { useTheme } from '@/theme/theme';
@@ -49,7 +50,13 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
   scene.addSystem(weather);
   scene.bindGestures(createController(scene, garden, kois, hooks));
   if (useDebug.getState().enabled)
-    Object.assign(window, { __scene: scene, __kois: kois, __garden: garden });
+    Object.assign(window, {
+      __scene: scene,
+      __kois: kois,
+      __garden: garden,
+      __game: useGame,
+      __ui: useUi,
+    });
 
   const refresh = () => {
     const now = clock.date();
