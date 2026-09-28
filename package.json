@@ -1,7 +1,7 @@
 {
   "name": "komorebi",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Komorebi — un jardin zen avec bassin à koïs qui vit en temps réel.",
   "type": "module",
   "scripts": {
