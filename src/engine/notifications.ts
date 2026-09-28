@@ -1,45 +1,15 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { CATALOG } from '@/garden/catalog';
 import { t } from '@/i18n';
-import { simulateAbsence } from '@/save/offline';
+import { PENDING_CAP_HOURS } from '@/pond/economy';
 import { snapshotGame } from '@/state/game';
 import { patchSettings, useSettings } from '@/state/settings';
-import { useWorld } from '@/state/world';
 import { nextMeteorShowerPeak } from '@/world/events';
-import { dayOfYear } from '@/world/math';
-import { weatherSeries } from '@/world/weatherService';
 import { clock } from './clock';
 
-const IDS = { bloom: 101, fry: 102, meteor: 103 } as const;
+const IDS = { eggs: 101, full: 102, meteor: 103 } as const;
 const HOUR = 3_600_000;
-
-/** Prochain instant (≥ now) où la floraison d'une espèce commence, à 9 h locales. */
-function nextBloom(kind: 'cherry', now: number): Date | null {
-  const b = CATALOG[kind].bloom;
-  if (!b) return null;
-  const start = b.peak - Math.round(b.width * 0.4);
-  for (let d = 1; d < 370; d++) {
-    const date = new Date(now + d * 24 * HOUR);
-    if (dayOfYear(date) === start) {
-      date.setHours(9, 0, 0, 0);
-      return date;
-    }
-  }
-  return null;
-}
-
-/** Première naissance prévue dans les 48 h (simulation déterministe identique à celle du retour). */
-function nextBirth(now: number): { at: Date; n: number } | null {
-  const state = snapshotGame();
-  const { location } = useWorld.getState();
-  const { summary } = simulateAbsence(state, now + 48 * HOUR, location, weatherSeries());
-  const first = summary.births[0];
-  if (!first) return null;
-  const n = summary.births.filter((b) => b.bornAt === first.bornAt).length;
-  return { at: new Date(Math.max(first.bornAt, now + HOUR)), n };
-}
 
 /** Replanifie les notifications douces (à la mise en arrière-plan). */
 export async function scheduleNotifications(): Promise<void> {
@@ -50,32 +20,33 @@ export async function scheduleNotifications(): Promise<void> {
   }).catch(() => undefined);
   if (!s.enabled) return;
   const now = clock.now();
+  const game = snapshotGame();
   const list: {
     id: number;
     title: string;
     body: string;
     schedule: { at: Date; allowWhileIdle: boolean };
   }[] = [];
-  if (s.bloom && snapshotGame().objects.some((o) => o.kind === 'cherry' && o.growth >= 0.6)) {
-    const at = nextBloom('cherry', now);
-    if (at)
-      list.push({
-        id: IDS.bloom,
-        title: t('notif.bloomTitle'),
-        body: t('notif.bloom', { species: t('species.cherry.name') }),
-        schedule: { at, allowWhileIdle: false },
-      });
-  }
-  if (s.fry) {
-    const b = nextBirth(now);
-    if (b)
-      list.push({
-        id: IDS.fry,
-        title: t('notif.fryTitle'),
-        body: t('notif.fry', { n: b.n }),
-        schedule: { at: b.at, allowWhileIdle: false },
-      });
-  }
+  // Œufs prêts à éclore
+  const nextEgg = game.eggs
+    .map((e) => e.hatchAt)
+    .filter((at) => at > now)
+    .sort((a, b) => a - b)[0];
+  if (s.fry && nextEgg)
+    list.push({
+      id: IDS.eggs,
+      title: t('notif.eggsTitle'),
+      body: t('notif.eggs'),
+      schedule: { at: new Date(nextEgg), allowWhileIdle: false },
+    });
+  // Bassin plein de pétales (production plafonnée)
+  if (s.bloom)
+    list.push({
+      id: IDS.full,
+      title: t('notif.fullTitle'),
+      body: t('notif.full'),
+      schedule: { at: new Date(now + PENDING_CAP_HOURS * HOUR), allowWhileIdle: false },
+    });
   if (s.meteors) {
     const m = nextMeteorShowerPeak(new Date(now));
     const at = new Date(m.date);

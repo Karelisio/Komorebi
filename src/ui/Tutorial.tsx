@@ -1,16 +1,19 @@
 import { useEffect } from 'react';
-import { runtimeRef } from '@/engine/runtimeRef';
 import { t } from '@/i18n';
 import { useGame } from '@/state/game';
 import { useUi } from '@/state/ui';
-import { DEFAULT_VIEW } from '@/world/layout';
 
+/** Étapes : nourrir → récolter → acheter un œuf → décorer → carnet. */
 const STEPS = [
-  'tutorial.touchWater',
-  'tutorial.feed',
-  'tutorial.explore',
-  'tutorial.garden',
+  'tutorial.step0',
+  'tutorial.step1',
+  'tutorial.step2',
+  'tutorial.step3',
+  'tutorial.step4',
 ] as const;
+
+/** Où pointe la flèche pour chaque étape. */
+const TARGET = ['pond', 'pending', 'shop', 'bank', 'collection'] as const;
 
 export function advanceTutorial(from: number): void {
   const tut = useGame.getState().tutorial;
@@ -19,24 +22,21 @@ export function advanceTutorial(from: number): void {
   useGame.setState({ tutorial: { step, done: step >= STEPS.length } });
 }
 
-/** Tutoriel implicite : un murmure à la fois, qui s'efface dès que le geste est fait. */
+export function skipTutorial(): void {
+  useGame.setState({ tutorial: { step: STEPS.length, done: true } });
+}
+
+/** Tutoriel guidé : une consigne à la fois en bas de l'écran, une flèche vers l'endroit à toucher. */
 export function Tutorial() {
   const tut = useGame((s) => s.tutorial);
   const visible = useUi((s) => s.mode === 'garden' && s.sheet === 'none');
 
   useEffect(() => {
     if (tut.done) return;
-    if (tut.step === 2) {
-      // Avance dès que la caméra a bougé
-      const id = setInterval(() => {
-        const cam = runtimeRef.current?.scene.camera;
-        if (cam && Math.hypot(cam.x - DEFAULT_VIEW.x, cam.y - DEFAULT_VIEW.y) > 120)
-          advanceTutorial(2);
-      }, 500);
-      return () => clearInterval(id);
-    }
-    if (tut.step === 3) {
-      const id = setTimeout(() => advanceTutorial(3), 6000);
+    // Étape 3 : les emplacements libres de la berge s'illuminent
+    if (tut.step === 3) useUi.setState({ decorMode: true });
+    if (tut.step === 4) {
+      const id = setTimeout(() => advanceTutorial(4), 7000);
       return () => clearTimeout(id);
     }
     return undefined;
@@ -46,8 +46,12 @@ export function Tutorial() {
   const key = STEPS[tut.step];
   if (!key) return null;
   return (
-    <div key={key} className="whisper">
-      {t(key)}
+    <div key={key} className={`coach coach-${TARGET[tut.step]}`}>
+      <span className="arrow" aria-hidden="true" />
+      <p>{t(key)}</p>
+      <button className="link" onClick={skipTutorial}>
+        {t('tutorial.skip')}
+      </button>
     </div>
   );
 }

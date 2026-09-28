@@ -14,6 +14,10 @@ export interface KoiRecord {
   /** Satiété 0..1. */
   satiety: number;
   favorite?: boolean;
+  /** Croissance 0 (alevin) → 1 (adulte accompli) ; absente sur les anciennes sauvegardes. */
+  growth?: number;
+  /** Dernier croisement (ms). */
+  lastBredAt?: number;
 }
 
 const DAY = 86_400_000;
@@ -66,14 +70,22 @@ export function ageDays(k: KoiRecord, now: number): number {
   return Math.max(0, (now - k.bornAt) / DAY);
 }
 
+/** Croissance 0..1 : champ explicite, sinon déduite de l'âge (anciennes sauvegardes). */
+export function koiGrowth(k: KoiRecord, now: number): number {
+  return k.growth ?? Math.min(1, ageDays(k, now) / FULL_SIZE_DAYS);
+}
+
 /** Taille relative 0.3 (alevin) → 1 (adulte). */
 export function koiSize(k: KoiRecord, now: number): number {
-  const t = Math.min(1, ageDays(k, now) / FULL_SIZE_DAYS);
+  const t = koiGrowth(k, now);
   return 0.3 + 0.7 * (1 - (1 - t) * (1 - t));
 }
 
+/** Seuil de croissance à partir duquel un koï peut se reproduire. */
+export const ADULT_GROWTH = 0.5;
+
 export function isAdult(k: KoiRecord, now: number): boolean {
-  return ageDays(k, now) >= ADULT_DAYS;
+  return k.growth !== undefined ? k.growth >= ADULT_GROWTH : ageDays(k, now) >= ADULT_DAYS;
 }
 
 export function pickName(seed: number, taken: readonly string[]): string {

@@ -1,13 +1,11 @@
 import { create } from 'zustand';
-import type { CatalogId } from '@/garden/catalog';
 
-export type Tool = 'none' | 'water' | 'prune' | 'rake' | 'place';
 export type Mode = 'garden' | 'contemplation' | 'photo' | 'breath' | 'meditation';
 export type Sheet =
   | 'none'
-  | 'inventory'
+  | 'shop'
   | 'koi'
-  | 'object'
+  | 'decor'
   | 'journal'
   | 'settings'
   | 'update'
@@ -15,14 +13,17 @@ export type Sheet =
   | 'debug'
   | 'relax';
 
+export type ShopTab = 'eggs' | 'decor' | 'upgrades';
+
 export interface UiState {
-  tool: Tool;
-  placing: CatalogId | null;
-  /** Position monde de l'aperçu de placement. */
-  ghost: { x: number; y: number; valid: boolean } | null;
-  selectedObject: string | null;
   selectedKoi: string | null;
-  movingObject: string | null;
+  /** Emplacement de berge sélectionné (pose ou détail d'un décor). */
+  selectedSlot: number | null;
+  /** Mode décoration : emplacements libres visibles et touchables. */
+  decorMode: boolean;
+  shopTab: ShopTab;
+  /** Croisement en cours de choix : premier koï sélectionné. */
+  breedWith: string | null;
   mode: Mode;
   sheet: Sheet;
   toast: { key: string; text: string } | null;
@@ -32,12 +33,11 @@ export interface UiState {
 }
 
 export const useUi = create<UiState>(() => ({
-  tool: 'none',
-  placing: null,
-  ghost: null,
-  selectedObject: null,
   selectedKoi: null,
-  movingObject: null,
+  selectedSlot: null,
+  decorMode: false,
+  shopTab: 'eggs',
+  breedWith: null,
   mode: 'garden',
   sheet: 'none',
   toast: null,
@@ -46,12 +46,8 @@ export const useUi = create<UiState>(() => ({
   sleepUntil: null,
 }));
 
-export function setTool(tool: Tool): void {
-  useUi.setState({
-    tool,
-    placing: tool === 'place' ? useUi.getState().placing : null,
-    ghost: tool === 'place' ? useUi.getState().ghost : null,
-  });
+export function openShop(tab: ShopTab = useUi.getState().shopTab): void {
+  useUi.setState({ sheet: 'shop', shopTab: tab });
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;

@@ -16,7 +16,7 @@ describe('sauvegarde', () => {
   });
 
   it('détecte une sauvegarde corrompue', () => {
-    const text = encodeSave(newGame(0)).replace('"petals":30', '"petals":99999');
+    const text = encodeSave(newGame(0)).replace('"petals":40', '"petals":99999');
     expect(() => decodeSave(text)).toThrow(SaveError);
   });
 
@@ -41,33 +41,57 @@ describe('migrations', () => {
     expect(g.version).toBe(SAVE_VERSION);
     expect(g.kois).toEqual([]);
     expect(g.petals).toBe(12);
-    expect(g.stats.fed).toBe(3);
-    expect(g.stats.raked).toBe(0);
-    expect(g.sand).toEqual({ w: 0, h: 0, data: '' });
+    expect(g.stats.collected).toBe(0);
+    expect(g.decor.length).toBeGreaterThan(0);
+    expect(g.quests.length).toBe(3);
+  });
+
+  it('v1 → v2 : koïs gardés avec une croissance, objets du jardin remboursés', () => {
+    const now = Date.UTC(2026, 5, 1);
+    const koi = { ...newGame(now).kois[0]!, bornAt: now - 6 * 86_400_000, pondId: 'second' };
+    delete (koi as { growth?: number }).growth;
+    const v1 = {
+      version: 1,
+      createdAt: now,
+      lastSimAt: now,
+      petals: 50,
+      kois: [koi],
+      objects: [{ id: 'a' }, { id: 'b' }],
+      seeds: { maple: 2 },
+      zones: ['second-pond'],
+      sand: { w: 0, h: 0, data: '' },
+      objectives: { feed: 1 },
+      stats: { fed: 9, raked: 3 },
+      discovered: { varieties: ['kohaku'], species: ['maple'], events: [] },
+    };
+    const g = migrate(v1);
+    expect(g.version).toBe(SAVE_VERSION);
+    expect(g.petals).toBe(70);
+    expect(g.kois).toHaveLength(1);
+    expect(g.kois[0]!.pondId).toBe('main');
+    expect(g.kois[0]!.growth).toBeCloseTo(0.5, 2);
+    expect(g.discovered.varieties).toEqual(['kohaku']);
+    expect('objects' in g).toBe(false);
+    expect(g.tutorial.done).toBe(false);
   });
 
   it('refuse une version future', () => {
-    expect(() => migrate({ version: SAVE_VERSION + 1, objects: [], kois: [] })).toThrow(SaveError);
+    expect(() => migrate({ version: SAVE_VERSION + 1, kois: [] })).toThrow(SaveError);
   });
 });
 
 describe('simulation hors ligne', () => {
-  it('le jardin évolue pendant une absence de 3 jours', () => {
+  it('le bassin produit et les koïs grandissent pendant l’absence, avec un plafond', () => {
     const t0 = Date.UTC(2026, 4, 1, 8);
-    const g = newGame(t0);
-    const sapling = {
-      ...g.objects[0]!,
-      id: 'sapling',
-      kind: 'maple' as const,
-      growth: 0,
-      water: 1,
-    };
-    const state = { ...g, objects: [...g.objects, sapling] };
-    const { state: after, summary } = simulateAbsence(state, t0 + 72 * H, LOC, []);
+    const g = { ...newGame(t0), pending: 0 };
+    const { state: after, summary } = simulateAbsence(g, t0 + 72 * H, LOC, []);
     expect(summary.hours).toBe(72);
-    const grown = after.objects.find((o) => o.id === 'sapling')!;
-    expect(grown.growth).toBeGreaterThan(0.2);
     expect(after.lastSimAt).toBe(t0 + 72 * H);
+    expect(after.pending).toBeGreaterThan(0);
+    // Plafond : pas plus de quelques heures de production accumulées
+    const short = simulateAbsence(g, t0 + 4 * H, LOC, []).state.pending;
+    expect(after.pending).toBeLessThan(short * 3);
+    expect(after.kois[0]!.growth!).toBeGreaterThan(g.kois[0]!.growth!);
     // Les koïs ont faim en revenant
     expect(after.kois[0]!.satiety).toBeLessThan(g.kois[0]!.satiety);
   });

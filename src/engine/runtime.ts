@@ -1,10 +1,9 @@
-import { GardenSystem } from '@/render/GardenSystem';
-import { GrassSystem } from '@/render/GrassSystem';
+import { DecorSystem } from '@/render/DecorSystem';
+import { HarvestSystem } from '@/render/HarvestSystem';
 import { KoiSystem } from '@/render/KoiSystem';
 import { LilySystem } from '@/render/LilySystem';
 import { Scene } from '@/render/Scene';
 import { WeatherSystem, type NatureEvent } from '@/render/WeatherSystem';
-import { ZoneSystem } from '@/render/ZoneSystem';
 import { useGame } from '@/state/game';
 import { useUi } from '@/state/ui';
 import { useSettings } from '@/state/settings';
@@ -20,7 +19,8 @@ import { computeEnv } from './environment';
 
 export interface Runtime {
   scene: Scene;
-  garden: GardenSystem;
+  decor: DecorSystem;
+  harvest: HarvestSystem;
   kois: KoiSystem;
   weather: WeatherSystem;
   refresh(): void;
@@ -38,22 +38,22 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
   const scene = await Scene.create(host, settings.quality);
   scene.loop.setFpsCap(settings.fpsCap);
   const kois = new KoiSystem(scene.ponds, settings.quality !== 'low');
-  const garden = new GardenSystem(scene);
+  const decor = new DecorSystem(scene);
+  const harvest = new HarvestSystem(scene.ponds[0]!, kois);
   const weather = new WeatherSystem(scene);
   weather.onEvent = (e) => hooks.onNature?.(e);
-  scene.addSystem(new GrassSystem(scene));
-  scene.addSystem(garden);
+  scene.addSystem(decor);
   scene.addSystem(kois);
   const lilies = new LilySystem(scene.ponds);
   scene.addSystem(lilies);
-  scene.addSystem(new ZoneSystem(scene, kois, lilies));
+  scene.addSystem(harvest);
   scene.addSystem(weather);
-  scene.bindGestures(createController(scene, garden, kois, hooks));
+  scene.bindGestures(createController(scene, { decor, harvest, kois }, hooks));
   if (useDebug.getState().enabled)
     Object.assign(window, {
       __scene: scene,
       __kois: kois,
-      __garden: garden,
+      __harvest: harvest,
       __game: useGame,
       __ui: useUi,
     });
@@ -103,7 +103,8 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
 
   return {
     scene,
-    garden,
+    decor,
+    harvest,
     kois,
     weather,
     refresh,

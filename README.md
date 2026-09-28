@@ -11,22 +11,30 @@ application Android via [Capacitor](https://capacitorjs.com/) 8.
 
 ## Fonctionnalités
 
-- **Bassin à koïs vivant** : génétique héritable (allèles, motifs, variétés
-  rares), banc animé (boids), nourrissage, nénuphars.
-- **Jardin évolutif** : croissance des plantations, placement, sable ratissé,
-  décor japonais (haie taillée, allée de gravier, arbres en amas de feuilles).
-- **Cycle jour/nuit et saisons réels** : soleil, lune, phases lunaires,
-  saisons et rayons de komorebi calculés depuis votre position (ou une
-  position de repli).
-- **Météo réelle et simulée**, avec cache local et dégradation gracieuse hors
-  connexion.
-- **Sauvegarde versionnée** avec migrations et simulation de la progression
-  pendant les absences (hors ligne).
-- **Thème Material You** : couleurs dynamiques du système sur Android 12+, en
-  plus des thèmes clair / sombre / naturel.
-- **Mises à jour in-app** : vérifie, télécharge (avec reprise) et installe les
-  nouvelles versions directement depuis les GitHub Releases du dépôt.
-- **Interface entièrement en français**, i18n typée (`src/i18n`).
+- **Bassin vu de près, peint à l'aquarelle** : berge, pierres, mousses et
+  décors peints procéduralement (lavis, bords humides, grain du papier),
+  eau claire couleur jade, lumière filtrée par le feuillage.
+- **Boucle simple** : les koïs produisent des pétales (bulles à toucher sur
+  l'eau, plafond de 8 h en absence) ; on nourrit, on récolte, on achète des
+  œufs, on décore la berge, on améliore le bassin.
+- **Collection** : génétique héritable (allèles, motifs, 20 variétés, traits
+  rares), œufs à trois paliers, croisements entre adultes, carnet des
+  variétés avec récompense à chaque découverte.
+- **Décor à effets** : douze objets posés sur les emplacements de la berge
+  (lanternes qui s'allument la nuit, érable, cerisier, shishi-odoshi…), chacun
+  avec un petit bonus (pétales, croissance, éclosion, chance).
+- **Objectifs et niveaux** : trois objectifs concrets à la fois ; les réussir
+  fait monter le niveau du jardin et débloque décors et œufs rares.
+- **Prise en main guidée** : trois gros boutons (*Nourrir*, *Boutique*,
+  *Carnet*), tutoriel en cinq étapes, caméra cadrée.
+- **Temps réel** : heure, saisons, soleil, lune et météo de votre lieu (ou d'un
+  lieu de repli) changent la lumière, l'eau et la berge.
+- **Sauvegarde versionnée** avec migrations et simulation de l'absence.
+- **Thème Material You** en plus des thèmes clair / sombre / naturel.
+- **Mises à jour in-app** depuis les GitHub Releases (SHA-256 vérifié).
+- **Français par défaut**, anglais disponible (i18n typée, `src/i18n`).
+
+![Bassin](docs/captures/bassin.png)
 
 ## Prérequis
 
@@ -56,7 +64,6 @@ captures d'écran :
 | `debug=1`         | Active le panneau/mode debug                                        |
 | `fps=1`           | Affiche le compteur d'images par seconde                            |
 | `koitex=1`        | Affiche la planche de debug des textures de koïs                    |
-| `decor=1`         | Affiche la planche de debug de tous les objets de décor              |
 
 Exemple :
 `http://localhost:5173/?t=2026-06-21T19:00:00Z&speed=60&season=autumn&weather=rain&debug=1`
@@ -174,9 +181,13 @@ le keystore est supposé placé à la racine du dépôt.)
 ### 4. Publier
 
 ```bash
-git tag v1.0.0
+git tag v2.0.0
 git push --tags
 ```
+
+Sans possibilité de pousser un tag, le workflow peut aussi être lancé à la main
+(*Actions → Release → Run workflow*) avec le tag voulu : il crée alors le tag
+sur la branche cible (`main` par défaut) au moment de publier la release.
 
 Le workflow calcule `versionName`/`versionCode` depuis le tag
 (`scripts/version-from-tag.mjs`), construit l'APK et l'AAB signés, génère un
@@ -201,10 +212,10 @@ installation. Voir `src/update/` (logique) et
 | ------------- | -------------------------------------------------------------------------- |
 | `config/`     | Configuration statique de l'application (`APP_CONFIG`).                    |
 | `engine/`     | Boucle de jeu, horloge, caméra, gestes, haptique, démarrage, notifications. |
-| `garden/`     | Catalogue, croissance et placement des plantations, progression.           |
+| `garden/`     | Décor de la berge (effets), objectifs, cadeau quotidien.                   |
 | `i18n/`       | Internationalisation typée (français par défaut, anglais).                 |
-| `pond/`       | Koïs : génétique, comportement de banc (boids), ondes.                     |
-| `render/`     | Scène PixiJS (ciel, eau, décor, koïs, météo, qualité graphique).           |
+| `pond/`       | Koïs : génétique, œufs, économie (production, croissance), boids, ondes.   |
+| `render/`     | Scène PixiJS : peinture aquarelle, eau, décor, koïs, récolte, météo.       |
 | `save/`       | Sauvegarde locale versionnée, migrations, simulation hors-ligne.           |
 | `state/`      | Stores applicatifs (zustand) : partie, réglages, UI, monde.               |
 | `theme/`      | Thèmes d'interface, palette Material You dynamique.                       |
