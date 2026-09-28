@@ -30,15 +30,10 @@ export function startAudioBridge(rt: Runtime): () => void {
   const timer = setInterval(() => {
     const w = useWorld.getState();
     if (!w.sky || !w.weather || !w.nature) return;
-    const cam = rt.scene.camera;
-    const pond = rt.scene.ponds[0]?.shape;
-    const near = pond
-      ? Math.max(0, 1 - Math.hypot(cam.x - pond.cx, cam.y - pond.cy) / 900) *
-        Math.min(1, cam.zoom / (rt.scene.width / 760))
-      : 0;
+    // Vue rapprochée : on est toujours au bord de l'eau ; la fontaine en bambou fait couler un filet d'eau
     audio.updateEnvironment(w.sky, w.weather, w.nature, {
-      stream: useGame.getState().zones.includes('waterfall'),
-      nearWater: Math.min(1, near),
+      stream: useGame.getState().decor.includes('shishi'),
+      nearWater: 1,
     });
   }, 1000);
 

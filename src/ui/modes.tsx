@@ -26,7 +26,7 @@ export function enterMode(
 ): void {
   const rt = runtimeRef.current;
   if (rt && mode !== 'photo') rt.scene.camera.drift = true;
-  useUi.setState({ mode, sheet: 'none', hudVisible: false, tool: 'none' });
+  useUi.setState({ mode, sheet: 'none', hudVisible: false, decorMode: false });
   if (keepAwake) void KeepAwake.keepAwake().catch(() => undefined);
 }
 

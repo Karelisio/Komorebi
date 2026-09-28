@@ -12,6 +12,26 @@ const base = {
 type P = SVGProps<SVGSVGElement>;
 
 export const Icon = {
+  feed: (p: P) => (
+    <svg {...base} {...p}>
+      <path d="M4 10h16l-1.5 8.5a2 2 0 0 1-2 1.5h-9a2 2 0 0 1-2-1.5Z" />
+      <circle cx="9" cy="6" r="1.2" />
+      <circle cx="13.5" cy="4.5" r="1.2" />
+      <circle cx="15.5" cy="7.5" r="1.2" />
+    </svg>
+  ),
+  shop: (p: P) => (
+    <svg {...base} {...p}>
+      <path d="M5 8h14l-1 12H6Z" />
+      <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+    </svg>
+  ),
+  egg: (p: P) => (
+    <svg {...base} {...p}>
+      <path d="M12 3c3.5 0 6.5 6 6.5 10.5A6.5 6.5 0 0 1 5.5 13.5C5.5 9 8.5 3 12 3Z" />
+      <path d="M9 13.5a3 3 0 0 0 3 3" />
+    </svg>
+  ),
   leaf: (p: P) => (
     <svg {...base} {...p}>
       <path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14Z" />

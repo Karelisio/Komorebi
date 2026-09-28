@@ -33,7 +33,8 @@ function blobPath(ctx: Ctx, x: number, y: number, rx: number, ry: number, rng: R
   const pts: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     const t = (i / n) * Math.PI * 2;
-    const r = 1 + k1 * Math.sin(2 * t + phase) + k2 * Math.sin(3 * t - phase * 1.7) + (rng() - 0.5) * 0.12;
+    const r =
+      1 + k1 * Math.sin(2 * t + phase) + k2 * Math.sin(3 * t - phase * 1.7) + (rng() - 0.5) * 0.12;
     pts.push([x + Math.cos(t) * rx * r, y + Math.sin(t) * ry * r]);
   }
   ctx.beginPath();
@@ -106,7 +107,12 @@ function stroke(
   ctx.beginPath();
   ctx.moveTo(x + nx * width, y + ny * width);
   ctx.quadraticCurveTo(cx + nx * width * 0.6, cy + ny * width * 0.6, ex, ey);
-  ctx.quadraticCurveTo(cx - nx * width * 0.6, cy - ny * width * 0.6, x - nx * width, y - ny * width);
+  ctx.quadraticCurveTo(
+    cx - nx * width * 0.6,
+    cy - ny * width * 0.6,
+    x - nx * width,
+    y - ny * width,
+  );
   ctx.closePath();
   ctx.fillStyle = rgba(color, alpha);
   ctx.fill();
@@ -223,9 +229,29 @@ export function paintBank(o: BankPaintOptions): Texture {
     for (let b = 0; b < blades; b++) {
       const a = -Math.PI / 2 + (rng() - 0.5) * 1.3;
       const len = size * (0.6 + rng() * 0.6);
-      stroke(ctx, x + (rng() - 0.5) * size * 0.4, y, a, len, size * 0.07, (rng() - 0.5) * size * 0.4, base, 0.75);
+      stroke(
+        ctx,
+        x + (rng() - 0.5) * size * 0.4,
+        y,
+        a,
+        len,
+        size * 0.07,
+        (rng() - 0.5) * size * 0.4,
+        base,
+        0.75,
+      );
       if (rng() < 0.5)
-        stroke(ctx, x + (rng() - 0.5) * size * 0.3, y, a, len * 0.7, size * 0.05, 0, '#b9cf7a', 0.45);
+        stroke(
+          ctx,
+          x + (rng() - 0.5) * size * 0.3,
+          y,
+          a,
+          len * 0.7,
+          size * 0.05,
+          0,
+          '#b9cf7a',
+          0.45,
+        );
     }
   };
   for (let i = 0; i < 520 * s * s; i++) tuft(rng() * W, rng() * H, (12 + rng() * 16) * s);
@@ -239,7 +265,17 @@ export function paintBank(o: BankPaintOptions): Texture {
       const y = cy + (rng() - 0.5) * 36 * s;
       for (let l = 0; l < 3; l++) {
         const a = (l / 3) * Math.PI * 2 + rng();
-        wash(ctx, x + Math.cos(a) * 3 * s, y + Math.sin(a) * 3 * s, 3.2 * s, 2.6 * s, rng() < 0.5 ? '#4f8a3c' : '#6fa24d', 0.7, rng, 0.5);
+        wash(
+          ctx,
+          x + Math.cos(a) * 3 * s,
+          y + Math.sin(a) * 3 * s,
+          3.2 * s,
+          2.6 * s,
+          rng() < 0.5 ? '#4f8a3c' : '#6fa24d',
+          0.7,
+          rng,
+          0.5,
+        );
       }
     }
   }
@@ -317,7 +353,17 @@ export function paintBank(o: BankPaintOptions): Texture {
     wash(ctx, st.x - st.r * 0.18, st.y - ry * 0.2, st.r * 0.7, ry * 0.55, '#d8d2c2', 0.35, rng, 0);
     wash(ctx, st.x + st.r * 0.1, st.y + ry * 0.35, st.r * 0.75, ry * 0.35, '#4d4a44', 0.25, rng, 0);
     if (rng() < 0.45)
-      wash(ctx, st.x + (rng() - 0.5) * st.r, st.y - ry * 0.3, st.r * 0.4, ry * 0.3, pal.moss, 0.7, rng, 0.4);
+      wash(
+        ctx,
+        st.x + (rng() - 0.5) * st.r,
+        st.y - ry * 0.3,
+        st.r * 0.4,
+        ry * 0.3,
+        pal.moss,
+        0.7,
+        rng,
+        0.4,
+      );
   }
 
   // 7. Fougères et joncs en bouquets sur la berge
@@ -326,9 +372,21 @@ export function paintBank(o: BankPaintOptions): Texture {
     const fern = rng() < 0.55;
     const blades = fern ? 7 : 9;
     for (let b = 0; b < blades; b++) {
-      const a = fern ? (b / blades) * Math.PI * 2 + rng() * 0.3 : -Math.PI / 2 + (rng() - 0.5) * 1.1;
+      const a = fern
+        ? (b / blades) * Math.PI * 2 + rng() * 0.3
+        : -Math.PI / 2 + (rng() - 0.5) * 1.1;
       const len = (fern ? 18 + rng() * 12 : 20 + rng() * 22) * s;
-      stroke(ctx, x, y, a, len, (fern ? 3.2 : 1.6) * s, (rng() - 0.5) * 8 * s, rng() < 0.5 ? '#3f6d33' : '#5c8a3e', 0.8);
+      stroke(
+        ctx,
+        x,
+        y,
+        a,
+        len,
+        (fern ? 3.2 : 1.6) * s,
+        (rng() - 0.5) * 8 * s,
+        rng() < 0.5 ? '#3f6d33' : '#5c8a3e',
+        0.8,
+      );
       if (fern)
         for (let l = 1; l < 5; l++) {
           const t = l / 5;
@@ -353,7 +411,17 @@ export function paintBank(o: BankPaintOptions): Texture {
       stroke(ctx, x, y + 6 * s, -Math.PI / 2, 7 * s, 0.8 * s, 0, '#3e6a31', 0.8);
       for (let p = 0; p < 5; p++) {
         const a = (p / 5) * Math.PI * 2;
-        wash(ctx, x + Math.cos(a) * 2.6 * s, y + Math.sin(a) * 2.2 * s, 2.4 * s, 2 * s, col, 0.9, rng, 0.3);
+        wash(
+          ctx,
+          x + Math.cos(a) * 2.6 * s,
+          y + Math.sin(a) * 2.2 * s,
+          2.4 * s,
+          2 * s,
+          col,
+          0.9,
+          rng,
+          0.3,
+        );
       }
       wash(ctx, x, y, 1.2 * s, 1.2 * s, '#e8b830', 0.95, rng, 0);
     }

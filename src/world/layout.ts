@@ -107,14 +107,14 @@ export const SECOND_POND = makePondShape('second', 340, 2600, 120, 80, 13);
 
 /** Emplacements de décor sur la berge (pied des objets). */
 export const BANK_SLOTS: readonly Point[] = [
-  { x: 92, y: 300 },
-  { x: 596, y: 320 },
-  { x: 58, y: 520 },
-  { x: 622, y: 560 },
-  { x: 50, y: 760 },
-  { x: 628, y: 790 },
-  { x: 60, y: 1000 },
-  { x: 618, y: 1010 },
-  { x: 104, y: 1215 },
-  { x: 580, y: 1200 },
+  { x: 62, y: 430 },
+  { x: 620, y: 450 },
+  { x: 52, y: 620 },
+  { x: 628, y: 640 },
+  { x: 50, y: 810 },
+  { x: 630, y: 830 },
+  { x: 58, y: 1000 },
+  { x: 622, y: 1015 },
+  { x: 86, y: 1185 },
+  { x: 596, y: 1195 },
 ];

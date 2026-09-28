@@ -207,7 +207,6 @@ export class KoiSystem implements SceneSystem {
         continue;
       }
       this.views.set(k.id, this.createView(k, rt, now));
-      useGame.getState().discoverVariety(k, now);
     }
   }
 

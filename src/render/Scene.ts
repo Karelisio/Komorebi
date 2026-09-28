@@ -26,7 +26,21 @@ import { paintBank, paintBed } from './painting';
 import { PondView } from './PondView';
 import { QUALITY, type QualityLevel, type QualityProfile } from './quality';
 import { sharedTextures } from './textures';
-import { DEFAULT_SUN, type SunLight } from './TreeView';
+
+/** Soleil vu par le décor : côté, direction et longueur des ombres. */
+export interface SunLight {
+  /** Côté du soleil à l'écran : -1 gauche, 1 droite. */
+  side: number;
+  /** Direction de l'ombre portée au sol (unitaire, espace monde). */
+  dx: number;
+  dy: number;
+  /** Longueur relative de l'ombre (1 ≈ soleil à 45°). */
+  len: number;
+  /** Intensité (0 la nuit ou par temps couvert). */
+  strength: number;
+}
+
+const DEFAULT_SUN: SunLight = { side: -0.4, dx: 0.3, dy: 0.5, len: 0.8, strength: 0.5 };
 
 export interface SceneEnv {
   sky: SkyState;
@@ -118,13 +132,7 @@ export class Scene {
     this.light = new LightLayer(this.screenFx, this.screenFx, this.overlay);
     this.vignette = new Sprite(tex.vignette);
     this.overlay.addChild(this.vignette);
-    this.stage.addChild(
-      this.world,
-      this.skyLayer,
-      this.fgLayer,
-      this.screenFx,
-      this.overlay,
-    );
+    this.stage.addChild(this.world, this.skyLayer, this.fgLayer, this.screenFx, this.overlay);
 
     this.addPond(new PondView(MAIN_POND, { bed: paintBed(MAIN_POND) }, this.pondQuality()));
   }

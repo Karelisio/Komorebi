@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { catchUp } from '@/engine/boot';
 import { clock } from '@/engine/clock';
 import { useDebug } from '@/engine/debug';
-import { CATALOG, CATALOG_IDS, type CatalogId } from '@/garden/catalog';
 import { t } from '@/i18n';
 import { newGame, useGame } from '@/state/game';
 import { useUi } from '@/state/ui';
@@ -109,15 +108,17 @@ export function DebugSheet() {
         </button>
         <button
           className="pill ghost"
-          onClick={() => {
-            const seeds: Partial<Record<CatalogId, number>> = { ...useGame.getState().seeds };
-            for (const id of CATALOG_IDS) {
-              if (CATALOG[id].grows) seeds[id] = (seeds[id] ?? 0) + 3;
-            }
-            useGame.setState({ seeds });
-          }}
+          onClick={() => useGame.setState((s) => ({ level: s.level + 1 }))}
         >
-          {t('debug.seeds')}
+          {t('debug.level')}
+        </button>
+        <button
+          className="pill ghost"
+          onClick={() =>
+            useGame.setState((s) => ({ eggs: s.eggs.map((e) => ({ ...e, hatchAt: clock.now() })) }))
+          }
+        >
+          {t('debug.hatch')}
         </button>
         <button
           className="pill ghost"

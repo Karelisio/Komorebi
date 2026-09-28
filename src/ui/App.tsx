@@ -11,29 +11,32 @@ import { checkDaily, onNatureEvent, progressTick } from '@/engine/progress';
 import { runtimeRef } from '@/engine/runtimeRef';
 import { setLang, t } from '@/i18n';
 import { useSettings } from '@/state/settings';
-import { useUi } from '@/state/ui';
+import { showToast, useUi } from '@/state/ui';
 import { applyTheme, watchSystemTheme } from '@/theme/theme';
 import { checkForUpdates } from '@/update/updater';
 import { Hud, Toast } from './Hud';
 import { ModeOverlay } from './modes';
 import { SceneHost } from './SceneHost';
+import { CollectionSheet } from './sheets/CollectionSheet';
 import { DebugSheet } from './sheets/DebugSheet';
-import { InventorySheet } from './sheets/InventorySheet';
+import { DecorSheet } from './sheets/DecorSheet';
 import { JournalSheet } from './sheets/JournalSheet';
 import { KoiSheet } from './sheets/KoiSheet';
-import { ObjectSheet } from './sheets/ObjectSheet';
 import { RelaxSheet } from './sheets/RelaxSheet';
 import { SettingsSheet } from './sheets/SettingsSheet';
+import { ShopSheet } from './sheets/ShopSheet';
 import { UpdateSheet } from './sheets/UpdateSheet';
 import { advanceTutorial, Tutorial } from './Tutorial';
 
 function Sheets() {
   const sheet = useUi((s) => s.sheet);
   switch (sheet) {
-    case 'inventory':
-      return <InventorySheet />;
-    case 'object':
-      return <ObjectSheet />;
+    case 'shop':
+      return <ShopSheet />;
+    case 'decor':
+      return <DecorSheet />;
+    case 'collection':
+      return <CollectionSheet />;
     case 'koi':
       return <KoiSheet />;
     case 'journal':
@@ -80,9 +83,11 @@ export function App() {
   useEffect(() => setLang(lang), [lang]);
 
   useEffect(() => {
-    void boot().then(() => {
+    void boot().then(({ away }) => {
       setReady(true);
       checkDaily();
+      if (away && away.petals > 0)
+        setTimeout(() => showToast(t('harvest.away', { n: away.petals }), 4500), 5000);
     });
     if (Capacitor.isNativePlatform()) {
       void StatusBar.setOverlaysWebView({ overlay: true }).catch(() => undefined);
@@ -133,8 +138,8 @@ export function App() {
           hooks={{
             onNature: onNatureEvent,
             onTick: () => progressTick(),
-            onWaterTouch: () => advanceTutorial(0),
-            onFeed: () => advanceTutorial(1),
+            onFeed: () => advanceTutorial(0),
+            onCollect: () => advanceTutorial(1),
           }}
         />
       )}

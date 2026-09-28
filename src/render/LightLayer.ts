@@ -2,11 +2,13 @@ import type { Container } from 'pixi.js';
 import { createShaderMesh, setQuad, setVec, vec2, vec3 } from './gl';
 import { FOG_FRAGMENT, LIGHT_FRAGMENT } from './shaders/light';
 import { DAPPLE_FRAGMENT, PAPER_FRAGMENT } from './shaders/paper';
+import { sharedTextures } from './textures';
 
 export class LightLayer {
   readonly rays = createShaderMesh({
     name: 'rays',
     fragment: LIGHT_FRAGMENT,
+    textures: { uNoise: sharedTextures().noise.source },
     uniforms: {
       uScreen: { type: 'vec2<f32>', value: vec2(1, 1) },
       uSrc: { type: 'vec2<f32>', value: vec2() },
@@ -35,6 +37,7 @@ export class LightLayer {
   readonly dapple = createShaderMesh({
     name: 'dapple',
     fragment: DAPPLE_FRAGMENT,
+    textures: { uNoise: sharedTextures().noise.source },
     uniforms: {
       uScreen: { type: 'vec2<f32>', value: vec2(1, 1) },
       uTime: { type: 'f32', value: 0 },
@@ -48,6 +51,7 @@ export class LightLayer {
   readonly paper = createShaderMesh({
     name: 'paper',
     fragment: PAPER_FRAGMENT,
+    textures: { uNoise: sharedTextures().noise.source },
     uniforms: {
       uScreen: { type: 'vec2<f32>', value: vec2(1, 1) },
       uTime: { type: 'f32', value: 0 },
@@ -60,7 +64,7 @@ export class LightLayer {
   constructor(raysParent: Container, fogParent: Container, paperParent: Container) {
     this.rays.mesh.blendMode = 'add';
     this.dapple.mesh.blendMode = 'add';
-    this.paper.mesh.blendMode = 'multiply';
+    this.paper.mesh.blendMode = 'normal';
     raysParent.addChild(this.dapple.mesh, this.rays.mesh);
     fogParent.addChild(this.fog.mesh);
     paperParent.addChild(this.paper.mesh);

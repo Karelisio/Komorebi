@@ -20,8 +20,7 @@ export function SceneHost({
     void startRuntime(host, {
       onFeed: () => hooksRef.current?.onFeed?.(),
       onWaterTouch: () => hooksRef.current?.onWaterTouch?.(),
-      onRake: (d) => hooksRef.current?.onRake?.(d),
-      onHarvest: (n) => hooksRef.current?.onHarvest?.(n),
+      onCollect: (n) => hooksRef.current?.onCollect?.(n),
       onInteract: () => hooksRef.current?.onInteract?.(),
       onNature: (e) => hooksRef.current?.onNature?.(e),
       onTick: (now) => hooksRef.current?.onTick?.(now),

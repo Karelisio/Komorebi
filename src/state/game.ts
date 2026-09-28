@@ -1,66 +1,100 @@
 import { create } from 'zustand';
-import { CATALOG, ZONES, type CatalogId, type ZoneId } from '@/garden/catalog';
-import { dailyGift, objective, type DailyGift, type ObjectiveId } from '@/garden/progression';
-import { canHarvest, HARVEST_INTERVAL, harvestYield, prune, water } from '@/garden/growth';
+import { dailyGift, type DailyGift } from '@/garden/daily';
+import { decor, decorBonus, type DecorId } from '@/garden/decor';
+import { ACTIVE_QUESTS, makeQuest, questDone, type Quest } from '@/garden/quests';
+import {
+  accrue,
+  discoveryReward,
+  growthPerHour,
+  HOUR,
+  pondCapacity,
+  pondRate,
+  questsForLevel,
+  UPGRADE_MAX,
+  upgradeCost,
+  type UpgradeId,
+} from '@/pond/economy';
+import {
+  BREED_COOLDOWN,
+  BREED_COST,
+  bredEgg,
+  buyEgg as makeEgg,
+  EGG_OFFERS,
+  hatch,
+  isReady,
+  type Egg,
+  type EggTier,
+} from '@/pond/eggs';
 import { express } from '@/pond/genetics';
-import { feedKoi, starterKois, type KoiRecord } from '@/pond/koi';
+import { ADULT_GROWTH, feedKoi, isAdult, koiGrowth, starterKois, type KoiRecord } from '@/pond/koi';
 import { BANK_SLOTS, MAIN_POND } from '@/world/layout';
-import { mulberry32 } from '@/world/random';
-import type { GameState, GardenObject, JournalEntry } from './types';
+import type { GameState, GameStats, JournalEntry } from './types';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
-function starterObjects(now: number): GardenObject[] {
-  const rng = mulberry32(77);
-  const obj = (kind: CatalogId, x: number, y: number, growth = 1): GardenObject => ({
-    id: `obj-${kind}-${Math.round(x)}-${Math.round(y)}`,
-    kind,
-    x,
-    y,
-    seed: Math.floor(rng() * 1e9),
-    placedAt: now,
-    water: 1,
-    lastWateredAt: now,
-    prune: 0,
-    pruneCount: 0,
-    growth,
-    flip: rng() < 0.5,
-    harvestAt: now,
-  });
-  // Quelques éléments sur la berge ; les autres emplacements restent à décorer
-  const at = (kind: CatalogId, slot: number, growth = 1) => {
-    const p = BANK_SLOTS[slot]!;
-    return obj(kind, p.x, p.y, growth);
-  };
-  return [
-    at('rock', 0),
-    at('azalea', 1, 0.8),
-    at('iris', 2),
-    at('lantern', 3),
-    at('fern', 5),
-    at('moss', 6),
-  ];
+/** Nombre d'œufs que le nid peut contenir. */
+export const NEST_SIZE = 3;
+
+const emptyStats = (): GameStats => ({
+  fed: 0,
+  collected: 0,
+  eggsBought: 0,
+  hatched: 0,
+  bred: 0,
+  decorPlaced: 0,
+  upgrades: 0,
+  grown: 0,
+  discovered: 0,
+  photos: 0,
+  breaths: 0,
+  meditationMin: 0,
+});
+
+/** Décor de départ : quelques pierres et plantes, le reste à composer. */
+export function starterDecor(): (DecorId | null)[] {
+  const d: (DecorId | null)[] = BANK_SLOTS.map(() => null);
+  d[0] = 'rock';
+  d[3] = 'fern';
+  d[6] = 'moss-stone';
+  return d;
+}
+
+function initialQuests(stats: GameStats): Quest[] {
+  const out: Quest[] = [];
+  for (let i = 0; i < ACTIVE_QUESTS; i++) out.push(makeQuest(i, 1, stats, out));
+  return out;
 }
 
 export function newGame(now: number): GameState {
+  const stats = emptyStats();
+  const kois = starterKois(now, MAIN_POND.id)
+    .slice(0, 3)
+    .map((k, i) => ({
+      ...k,
+      growth: 0.45 + i * 0.1,
+    }));
   return {
     version: SAVE_VERSION,
     createdAt: now,
     lastSimAt: now,
-    petals: 30,
+    petals: 40,
     petalsEarned: 0,
-    seeds: { maple: 1, cherry: 1, moss: 2, fern: 1 },
-    objects: starterObjects(now),
-    kois: starterKois(now, MAIN_POND.id),
-    zones: [],
-    discovered: { varieties: [], species: ['maple', 'pine', 'bamboo', 'cherry'], events: [] },
+    // Quelques bulles dès le départ, pour apprendre à récolter
+    pending: 12,
+    kois,
+    eggs: [],
+    decor: starterDecor(),
+    upgrades: { pond: 0, food: 0, charm: 0 },
+    level: 1,
+    levelProgress: 0,
+    quests: initialQuests(stats),
+    questSeq: ACTIVE_QUESTS,
+    discovered: { varieties: [...new Set(kois.map((k) => express(k.genome).variety))], events: [] },
     journal: [],
-    objectives: {},
     daily: { lastDay: '', streak: 0 },
-    sand: { w: 0, h: 0, data: '' },
     tutorial: { step: 0, done: false },
     weatherMemory: { lastRainAt: 0, snowCover: 0, wetness: 0 },
-    stats: { fed: 0, watered: 0, raked: 0, photos: 0, breaths: 0, meditationMin: 0, pruned: 0 },
+    stats,
   };
 }
 
@@ -81,58 +115,54 @@ export function journalEntry(
   };
 }
 
-export function newObject(
-  kind: CatalogId,
-  x: number,
-  y: number,
-  now: number,
-  seed: number,
-): GardenObject {
-  const grows = CATALOG[kind].grows;
+/**
+ * Fait avancer l'économie de `dtMs` : production de pétales (plafonnée), croissance et faim
+ * des koïs. Pure : utilisée en jeu (chaque seconde) et pour la simulation hors ligne.
+ */
+export function advance(state: GameState, dtMs: number, now: number, night: boolean): GameState {
+  if (dtMs <= 0) return state;
+  const bonus = decorBonus(state.decor);
+  const hours = dtMs / HOUR;
+  let grown = 0;
+  const kois = state.kois.map((k) => {
+    const g0 = koiGrowth(k, now);
+    const g1 = Math.min(1, g0 + growthPerHour(k, state.upgrades, bonus) * hours);
+    if (g0 < ADULT_GROWTH && g1 >= ADULT_GROWTH) grown++;
+    return { ...k, growth: g1, satiety: Math.max(0, k.satiety - hours / 20) };
+  });
+  const rate = pondRate(kois, now, state.upgrades, bonus, night);
   return {
-    id: `obj-${now.toString(36)}-${seed.toString(36)}`,
-    kind,
-    x,
-    y,
-    seed,
-    placedAt: now,
-    water: 1,
-    lastWateredAt: now,
-    prune: 0,
-    pruneCount: 0,
-    growth: grows ? 0 : 1,
-    flip: seed % 2 === 0,
-    harvestAt: now + HARVEST_INTERVAL,
+    ...state,
+    kois,
+    pending: accrue(state.pending, rate, dtMs),
+    stats: grown ? { ...state.stats, grown: state.stats.grown + grown } : state.stats,
   };
 }
 
-interface GameActions {
+export interface GameActions {
   replace(state: GameState): void;
   addJournal(entry: JournalEntry): void;
-  discoverVariety(koi: KoiRecord, at: number): void;
+  /** Avance l'économie en jeu. */
+  tick(dtMs: number, now: number, night: boolean): void;
   onKoiAte(koiId: string): void;
   renameKoi(id: string, name: string): void;
   toggleFavorite(id: string): void;
-  moveKoi(id: string, pondId: string): void;
+  /** Relâche un koï dans la rivière (libère une place) ; rapporte quelques pétales. */
+  releaseKoi(id: string): number;
   addPetals(n: number): void;
-  /** Pose un objet (graine ou achat en pétales). Renvoie l'objet créé ou null. */
-  placeObject(kind: CatalogId, x: number, y: number, now: number): GardenObject | null;
-  moveObject(id: string, x: number, y: number): void;
-  removeObject(id: string): void;
-  waterObjects(ids: readonly string[], amount: number, now: number): void;
-  pruneObject(id: string): boolean;
-  harvestObject(
-    id: string,
-    now: number,
-    day: number,
-  ): { petals: number; seed: CatalogId | null } | null;
-  setSand(data: string, w: number, h: number): void;
-  canAfford(kind: CatalogId): boolean;
-  /** Valide un petit moment (une seule fois). Renvoie la récompense ou null. */
-  completeObjective(id: ObjectiveId, now: number): number | null;
+  /** Récolte les pétales en attente ; renvoie la quantité. */
+  collect(): number;
+  buyEgg(tier: EggTier, now: number): Egg | null;
+  /** Fait éclore les œufs prêts (s'il y a de la place). Renvoie les nouveaux koïs et les découvertes. */
+  hatchReady(now: number): { born: KoiRecord[]; discoveries: { koi: KoiRecord; reward: number }[] };
+  breed(aId: string, bId: string, now: number): Egg | null;
+  placeDecor(slot: number, id: DecorId): boolean;
+  removeDecor(slot: number): number;
+  upgrade(id: UpgradeId): boolean;
+  /** Réclame une quête accomplie : récompense, progression de niveau, nouvelle quête. */
+  claimQuest(id: string): { reward: number; levelUp: boolean } | null;
   claimDaily(now: number): DailyGift | null;
-  unlockZone(id: ZoneId, now: number): boolean;
-  /** Ajoute un souvenir au journal, une seule fois par clé de dédoublonnage. */
+  recordStat(key: 'photos' | 'breaths' | 'meditationMin', n?: number): void;
   remember(
     kind: JournalEntry['kind'],
     key: string,
@@ -144,22 +174,13 @@ interface GameActions {
 
 export type GameStore = GameState & GameActions;
 
+const withJournal = (s: GameState, e: JournalEntry) => [e, ...s.journal].slice(0, 500);
+
 export const useGame = create<GameStore>((set, get) => ({
   ...newGame(Date.now()),
   replace: (state) => set({ ...state }),
-  addJournal: (entry) => set((s) => ({ journal: [entry, ...s.journal].slice(0, 500) })),
-  discoverVariety: (koi, at) => {
-    const v = express(koi.genome).variety;
-    const s = get();
-    if (s.discovered.varieties.includes(v)) return;
-    set({
-      discovered: { ...s.discovered, varieties: [...s.discovered.varieties, v] },
-      journal: [
-        journalEntry('discovery', 'variety', at, { variety: v, name: koi.name }),
-        ...s.journal,
-      ],
-    });
-  },
+  addJournal: (entry) => set((s) => ({ journal: withJournal(s, entry) })),
+  tick: (dtMs, now, night) => set((s) => advance(s, dtMs, now, night)),
   onKoiAte: (koiId) =>
     set((s) => ({
       kois: s.kois.map((k) => (k.id === koiId ? feedKoi(k) : k)),
@@ -173,134 +194,194 @@ export const useGame = create<GameStore>((set, get) => ({
     })),
   toggleFavorite: (id) =>
     set((s) => ({ kois: s.kois.map((k) => (k.id === id ? { ...k, favorite: !k.favorite } : k)) })),
-  moveKoi: (id, pondId) =>
-    set((s) => ({ kois: s.kois.map((k) => (k.id === id ? { ...k, pondId } : k)) })),
+  releaseKoi: (id) => {
+    const s = get();
+    const k = s.kois.find((x) => x.id === id);
+    if (!k || s.kois.length <= 1) return 0;
+    const gain = 5 * express(k.genome).rarity;
+    set({ kois: s.kois.filter((x) => x.id !== id), petals: s.petals + gain });
+    return gain;
+  },
   addPetals: (n) =>
     set((s) => ({ petals: s.petals + n, petalsEarned: s.petalsEarned + Math.max(0, n) })),
-  canAfford: (kind) => {
+  collect: () => {
     const s = get();
-    const e = CATALOG[kind];
-    return e.grows ? (s.seeds[kind] ?? 0) > 0 : s.petals >= e.cost;
-  },
-  placeObject: (kind, x, y, now) => {
-    const s = get();
-    if (!s.canAfford(kind)) return null;
-    const e = CATALOG[kind];
-    const o = newObject(kind, x, y, now, Math.floor(Math.random() * 1e9));
+    const n = Math.floor(s.pending);
+    if (n <= 0) return 0;
     set({
-      objects: [...s.objects, o],
-      seeds: e.grows ? { ...s.seeds, [kind]: (s.seeds[kind] ?? 0) - 1 } : s.seeds,
-      petals: e.grows ? s.petals : s.petals - e.cost,
-      discovered: s.discovered.species.includes(kind)
-        ? s.discovered
-        : { ...s.discovered, species: [...s.discovered.species, kind] },
+      pending: s.pending - n,
+      petals: s.petals + n,
+      petalsEarned: s.petalsEarned + n,
+      stats: { ...s.stats, collected: s.stats.collected + n },
     });
-    return o;
+    return n;
   },
-  moveObject: (id, x, y) =>
-    set((s) => ({ objects: s.objects.map((o) => (o.id === id ? { ...o, x, y } : o)) })),
-  removeObject: (id) =>
-    set((s) => {
-      const o = s.objects.find((x) => x.id === id);
-      if (!o) return {};
-      const e = CATALOG[o.kind];
-      return {
-        objects: s.objects.filter((x) => x.id !== id),
-        // Rien ne se perd : la graine revient, ou la moitié des pétales.
-        seeds: e.grows ? { ...s.seeds, [o.kind]: (s.seeds[o.kind] ?? 0) + 1 } : s.seeds,
-        petals: e.grows ? s.petals : s.petals + Math.floor(e.cost / 2),
-      };
-    }),
-  waterObjects: (ids, amount, now) =>
-    set((s) => ({
-      objects: s.objects.map((o) => (ids.includes(o.id) ? water(o, amount, now) : o)),
-      stats: { ...s.stats, watered: s.stats.watered + ids.length },
-    })),
-  pruneObject: (id) => {
+  buyEgg: (tier, now) => {
     const s = get();
-    const o = s.objects.find((x) => x.id === id);
-    if (!o) return false;
-    const next = prune(o);
-    if (next === o) return false;
+    const offer = EGG_OFFERS.find((o) => o.tier === tier);
+    if (!offer || s.level < offer.level || s.petals < offer.cost || s.eggs.length >= NEST_SIZE)
+      return null;
+    const egg = makeEgg(offer, Math.floor(Math.random() * 2 ** 31), now, decorBonus(s.decor).hatch);
     set({
-      objects: s.objects.map((x) => (x.id === id ? next : x)),
-      stats: { ...s.stats, pruned: s.stats.pruned + 1 },
-      petals: s.petals + 1,
-      petalsEarned: s.petalsEarned + 1,
+      eggs: [...s.eggs, egg],
+      petals: s.petals - offer.cost,
+      stats: { ...s.stats, eggsBought: s.stats.eggsBought + 1 },
+    });
+    return egg;
+  },
+  hatchReady: (now) => {
+    const s = get();
+    const room = pondCapacity(s.upgrades) - s.kois.length;
+    const ready = s.eggs.filter((e) => isReady(e, now)).slice(0, Math.max(0, room));
+    if (!ready.length) return { born: [], discoveries: [] };
+    const born: KoiRecord[] = [];
+    const taken = s.kois.map((k) => k.name);
+    for (const egg of ready) {
+      const k = hatch(egg, Math.floor(Math.random() * 2 ** 31), now, MAIN_POND.id, [
+        ...taken,
+        ...born.map((b) => b.name),
+      ]);
+      born.push(k);
+    }
+    const varieties = [...s.discovered.varieties];
+    const discoveries: { koi: KoiRecord; reward: number }[] = [];
+    let journal = s.journal;
+    for (const k of born) {
+      const ph = express(k.genome);
+      if (!varieties.includes(ph.variety)) {
+        varieties.push(ph.variety);
+        const reward = discoveryReward(ph.rarity);
+        discoveries.push({ koi: k, reward });
+        journal = [
+          journalEntry('discovery', 'variety', now, { variety: ph.variety, name: k.name }),
+          ...journal,
+        ];
+      }
+    }
+    const bonus = discoveries.reduce((n, d) => n + d.reward, 0);
+    set({
+      kois: [...s.kois, ...born],
+      eggs: s.eggs.filter((e) => !ready.includes(e)),
+      discovered: { ...s.discovered, varieties },
+      petals: s.petals + bonus,
+      petalsEarned: s.petalsEarned + bonus,
+      journal: journal.slice(0, 500),
+      stats: {
+        ...s.stats,
+        hatched: s.stats.hatched + born.length,
+        discovered: s.stats.discovered + discoveries.length,
+      },
+    });
+    return { born, discoveries };
+  },
+  breed: (aId, bId, now) => {
+    const s = get();
+    const a = s.kois.find((k) => k.id === aId);
+    const b = s.kois.find((k) => k.id === bId);
+    if (!a || !b || a === b || a.sex === b.sex) return null;
+    if (!isAdult(a, now) || !isAdult(b, now)) return null;
+    if ((a.lastBredAt ?? 0) + BREED_COOLDOWN > now || (b.lastBredAt ?? 0) + BREED_COOLDOWN > now)
+      return null;
+    if (s.petals < BREED_COST || s.eggs.length >= NEST_SIZE) return null;
+    const bonus = decorBonus(s.decor);
+    const egg = bredEgg(a, b, Math.floor(Math.random() * 2 ** 31), now, bonus.hatch, bonus.luck);
+    set({
+      eggs: [...s.eggs, egg],
+      petals: s.petals - BREED_COST,
+      kois: s.kois.map((k) => (k.id === aId || k.id === bId ? { ...k, lastBredAt: now } : k)),
+      stats: { ...s.stats, bred: s.stats.bred + 1 },
+    });
+    return egg;
+  },
+  placeDecor: (slot, id) => {
+    const s = get();
+    const e = decor(id);
+    if (slot < 0 || slot >= s.decor.length || s.decor[slot]) return false;
+    if (s.level < e.level || s.petals < e.cost) return false;
+    const next = [...s.decor];
+    next[slot] = id;
+    set({
+      decor: next,
+      petals: s.petals - e.cost,
+      stats: { ...s.stats, decorPlaced: s.stats.decorPlaced + 1 },
     });
     return true;
   },
-  harvestObject: (id, now, day) => {
+  removeDecor: (slot) => {
     const s = get();
-    const o = s.objects.find((x) => x.id === id);
-    if (!o || !canHarvest(o, now)) return null;
-    const petals = harvestYield(o, day);
-    const rng = mulberry32(Math.floor(now / 1000) ^ o.seed);
-    const seed: CatalogId | null = rng() < 0.25 ? o.kind : null;
-    set({
-      objects: s.objects.map((x) =>
-        x.id === id ? { ...x, harvestAt: now + HARVEST_INTERVAL } : x,
-      ),
-      petals: s.petals + petals,
-      petalsEarned: s.petalsEarned + petals,
-      seeds: seed ? { ...s.seeds, [seed]: (s.seeds[seed] ?? 0) + 1 } : s.seeds,
-    });
-    return { petals, seed };
+    const id = s.decor[slot];
+    if (!id) return 0;
+    const refund = Math.floor(decor(id).cost / 2);
+    const next = [...s.decor];
+    next[slot] = null;
+    set({ decor: next, petals: s.petals + refund });
+    return refund;
   },
-  completeObjective: (id, now) => {
+  upgrade: (id) => {
     const s = get();
-    if (s.objectives[id]) return null;
-    const o = objective(id);
+    const lvl = s.upgrades[id];
+    if (lvl >= UPGRADE_MAX[id]) return false;
+    const cost = upgradeCost(id, lvl);
+    if (s.petals < cost) return false;
     set({
-      objectives: { ...s.objectives, [id]: now },
-      petals: s.petals + o.reward,
-      petalsEarned: s.petalsEarned + o.reward,
-      seeds: o.seed ? { ...s.seeds, [o.seed]: (s.seeds[o.seed] ?? 0) + 1 } : s.seeds,
-      journal: [journalEntry('objective', 'objective', now, { id }), ...s.journal].slice(0, 500),
+      upgrades: { ...s.upgrades, [id]: lvl + 1 },
+      petals: s.petals - cost,
+      stats: { ...s.stats, upgrades: s.stats.upgrades + 1 },
     });
-    return o.reward;
+    return true;
+  },
+  claimQuest: (id) => {
+    const s = get();
+    const q = s.quests.find((x) => x.id === id);
+    if (!q || !questDone(q, s.stats)) return null;
+    let level = s.level;
+    let progress = s.levelProgress + 1;
+    let levelUp = false;
+    if (progress >= questsForLevel(level)) {
+      level++;
+      progress = 0;
+      levelUp = true;
+    }
+    const others = s.quests.filter((x) => x.id !== id);
+    const next = makeQuest(s.questSeq, level, s.stats, others);
+    const quests = s.quests.map((x) => (x.id === id ? next : x));
+    set({
+      quests,
+      questSeq: s.questSeq + 1,
+      level,
+      levelProgress: progress,
+      petals: s.petals + q.reward,
+      petalsEarned: s.petalsEarned + q.reward,
+      journal: levelUp
+        ? withJournal(s, journalEntry('unlock', 'level', Date.now(), { n: level }))
+        : s.journal,
+    });
+    return { reward: q.reward, levelUp };
   },
   claimDaily: (now) => {
     const s = get();
-    const gift = dailyGift(s.daily, now, s.petalsEarned, Math.floor(now / 86_400_000));
+    const gift = dailyGift(s.daily, now);
     if (!gift) return null;
     set({
       daily: { lastDay: gift.day, streak: gift.streak },
       petals: s.petals + gift.petals,
       petalsEarned: s.petalsEarned + gift.petals,
-      seeds: { ...s.seeds, [gift.seed]: (s.seeds[gift.seed] ?? 0) + 1 },
-      journal: [journalEntry('memory', 'daily', now, { n: gift.streak }), ...s.journal].slice(
-        0,
-        500,
-      ),
+      journal: withJournal(s, journalEntry('memory', 'daily', now, { n: gift.streak })),
     });
     return gift;
   },
-  unlockZone: (id, now) => {
-    const s = get();
-    const z = ZONES.find((x) => x.id === id);
-    if (!z || s.zones.includes(id) || s.petalsEarned < z.unlockAt || s.petals < z.cost)
-      return false;
-    set({
-      zones: [...s.zones, id],
-      petals: s.petals - z.cost,
-      journal: [journalEntry('unlock', 'unlock', now, { zone: id }), ...s.journal].slice(0, 500),
-    });
-    return true;
-  },
+  recordStat: (key, n = 1) => set((s) => ({ stats: { ...s.stats, [key]: s.stats[key] + n } })),
   remember: (kind, key, now, params, once) => {
     const s = get();
     if (once && s.discovered.events.includes(once)) return false;
     set({
-      journal: [journalEntry(kind, key, now, params), ...s.journal].slice(0, 500),
+      journal: withJournal(s, journalEntry(kind, key, now, params)),
       discovered: once
         ? { ...s.discovered, events: [...s.discovered.events, once].slice(-400) }
         : s.discovered,
     });
     return true;
   },
-  setSand: (data, w, h) =>
-    set((s) => ({ sand: { w, h, data }, stats: { ...s.stats, raked: s.stats.raked + 1 } })),
 }));
 
 /** État sérialisable (sans les actions). */
@@ -312,15 +393,18 @@ export function snapshotGame(): GameState {
     lastSimAt: s.lastSimAt,
     petals: s.petals,
     petalsEarned: s.petalsEarned,
-    seeds: s.seeds,
-    objects: s.objects,
+    pending: s.pending,
     kois: s.kois,
-    zones: s.zones,
+    eggs: s.eggs,
+    decor: s.decor,
+    upgrades: s.upgrades,
+    level: s.level,
+    levelProgress: s.levelProgress,
+    quests: s.quests,
+    questSeq: s.questSeq,
     discovered: s.discovered,
     journal: s.journal,
-    objectives: s.objectives,
     daily: s.daily,
-    sand: s.sand,
     tutorial: s.tutorial,
     weatherMemory: s.weatherMemory,
     stats: s.stats,
