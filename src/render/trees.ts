@@ -36,7 +36,7 @@ const mixP = (a: Palette, b: Palette, t: number): Palette => ({
 const MAPLE_SPRING: Palette = { dark: C('#4f7a38'), mid: C('#7aa54e'), light: C('#a8cc72') };
 const MAPLE_SUMMER: Palette = { dark: C('#2f5a2c'), mid: C('#4f7f3a'), light: C('#7fa95a') };
 const MAPLE_AUTUMN: Palette = { dark: C('#8e2a22'), mid: C('#d44a2c'), light: C('#f28a45') };
-const CHERRY_BLOOM: Palette = { dark: C('#d4829e'), mid: C('#f5aec4'), light: C('#ffd6e3') };
+const CHERRY_BLOOM: Palette = { dark: C('#d97a9a'), mid: C('#f7a3bd'), light: C('#ffc4d6') };
 const CHERRY_AUTUMN: Palette = { dark: C('#9a5a2c'), mid: C('#d08a3c'), light: C('#eec06a') };
 const PINE: Palette = { dark: C('#23402f'), mid: C('#35593f'), light: C('#62875c') };
 const BAMBOO: Palette = { dark: C('#4c7a3a'), mid: C('#6f9c4c'), light: C('#a3c874') };
@@ -145,10 +145,25 @@ export interface Clump {
   tint: number;
   kind: ClumpKind;
   alpha: number;
+  /** Rôle dans le modelé (les ombres et lumières se décalent selon le soleil). */
+  role?: 'shadow' | 'main' | 'light' | 'snow';
+}
+
+export interface Segment {
+  x1: number;
+  y1: number;
+  w1: number;
+  x2: number;
+  y2: number;
+  w2: number;
 }
 
 export interface TreeResult {
   clumps: Clump[];
+  /** Rameaux dessinés devant le feuillage (profondeur). */
+  front: Segment[];
+  /** Couronne (pour l'ombre portée). */
+  crown: { cx: number; cy: number; rx: number; ry: number };
 }
 
 function crownClumps(
@@ -178,12 +193,22 @@ function crownClumps(
       tint: rgbToHex(p.dark),
       kind: kind === 'blossom' ? 'leaf' : kind,
       alpha: 0.9,
+      role: 'shadow',
     });
   // Masse principale : plus claire en haut de la couronne
   for (const t of sorted) {
     const k = 1 - (t.y - top) / range;
     const c = mixRgb(p.mid, p.light, 0.15 + k * 0.6 + (rng() - 0.5) * 0.25);
-    out.push({ x: t.x, y: t.y, r: t.r * 0.95, ry, tint: rgbToHex(c), kind, alpha: 1 });
+    out.push({
+      x: t.x,
+      y: t.y,
+      r: t.r * 0.95,
+      ry,
+      tint: rgbToHex(c),
+      kind,
+      alpha: 1,
+      role: 'main',
+    });
   }
   // Touches de lumière, côté soleil (haut-gauche)
   for (const t of sorted) {
@@ -196,6 +221,7 @@ function crownClumps(
       tint: rgbToHex(p.light),
       kind,
       alpha: 0.9,
+      role: 'light',
     });
   }
   if (snow > 0.05) {
@@ -208,9 +234,12 @@ function crownClumps(
         tint: rgbToHex(SNOW),
         kind: 'leaf',
         alpha: snow,
+        role: 'snow',
       });
   }
 }
+
+let frontSegs: Segment[] = [];
 
 function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng, out: Clump[]): void {
   const size = look.height * (0.22 + 0.78 * look.growth);
@@ -226,6 +255,9 @@ function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng, out: Clump[]): voi
     const x2 = x + Math.sin(angle + bend) * len;
     const y2 = y - Math.cos(angle + bend) * len;
     taper(g, x, y, w, x2, y2, w * 0.66, bark);
+    // Quelques rameaux passent devant le feuillage
+    if (d <= 2 && d >= 1 && rng() < 0.3)
+      frontSegs.push({ x1: x, y1: y, w1: w * 0.8, x2, y2, w2: w * 0.5 });
     if (d <= 0) {
       const r = size * (0.08 + rng() * 0.04) * (1 + look.prune * 0.5);
       tips.push({ x: x2, y: y2, r });
@@ -442,12 +474,13 @@ function drawBamboo(g: Graphics, look: TreeLook, rng: Rng): void {
 /** Dessine le bois d'un arbre (base en (0, 0), vers le haut) et renvoie ses amas de feuillage. */
 export function drawTree(g: Graphics, look: TreeLook): TreeResult {
   const clumps: Clump[] = [];
+  frontSegs = [];
   g.clear();
   const rng = mulberry32(look.seed);
   // Ombre portée au sol
-  g.ellipse(0, 0, look.height * (0.12 + look.growth * 0.2), look.height * 0.04).fill({
+  g.ellipse(0, 2, look.height * (0.05 + look.growth * 0.06), look.height * 0.018).fill({
     color: 0x1a261c,
-    alpha: 0.28,
+    alpha: 0.35,
   });
   switch (look.species) {
     case 'maple':
@@ -461,7 +494,22 @@ export function drawTree(g: Graphics, look: TreeLook): TreeResult {
       drawBamboo(g, look, rng);
       break;
   }
-  return { clumps };
+  // Couronne englobante (ombre portée)
+  const fol = clumps.filter((c) => c.role !== 'snow');
+  let crown = { cx: 0, cy: -look.height * 0.6, rx: look.height * 0.12, ry: look.height * 0.2 };
+  if (fol.length) {
+    const minX = Math.min(...fol.map((c) => c.x - c.r));
+    const maxX = Math.max(...fol.map((c) => c.x + c.r));
+    const minY = Math.min(...fol.map((c) => c.y - c.r));
+    const maxY = Math.max(...fol.map((c) => c.y + c.r));
+    crown = {
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+      rx: (maxX - minX) / 2,
+      ry: (maxY - minY) / 2,
+    };
+  }
+  return { clumps, front: frontSegs, crown };
 }
 
 /** Clé de cache : on ne redessine que si l'apparence change visiblement. */

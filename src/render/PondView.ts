@@ -1,5 +1,12 @@
 import type { Texture } from 'pixi.js';
-import { BufferImageSource, Container, Geometry, RenderTexture, type Renderer } from 'pixi.js';
+import {
+  BufferImageSource,
+  Container,
+  Geometry,
+  Matrix,
+  RenderTexture,
+  type Renderer,
+} from 'pixi.js';
 import { RippleField } from '@/pond/ripples';
 import { createShaderMesh, vec3, vec4 } from './gl';
 import { pointInPolygon, type PondShape } from '@/world/layout';
@@ -58,6 +65,11 @@ export class PondView {
   readonly field: RippleField;
   private readonly heightSource: BufferImageSource;
   private readonly koiRT: RenderTexture;
+  /** Reflets des objets de la berge (retournés autour de leur base). */
+  private readonly reflRT: RenderTexture;
+  private readonly reflEnabled: boolean;
+  private reflFrame = 0;
+  private readonly reflMatrix = new Matrix();
   readonly water;
   private simAcc = 0;
 
@@ -91,6 +103,13 @@ export class PondView {
       resolution: quality.koiResolution,
     });
 
+    this.reflEnabled = quality.level > 0;
+    this.reflRT = RenderTexture.create({
+      width: this.reflEnabled ? Math.ceil(bbox.width) : 4,
+      height: this.reflEnabled ? Math.ceil(bbox.height) : 4,
+      resolution: quality.level > 1 ? 0.75 : 0.5,
+    });
+
     this.water = createShaderMesh({
       name: 'water',
       fragment: WATER_FRAGMENT,
@@ -98,6 +117,7 @@ export class PondView {
       textures: {
         uHeight: this.heightSource,
         uKoi: this.koiRT.source,
+        uRefl: this.reflRT.source,
         uBed: textures.bed.source,
       },
       uniforms: {
@@ -119,6 +139,7 @@ export class PondView {
         uFogCol: { type: 'vec3<f32>', value: vec3(0.8, 0.8, 0.85) },
         uLantern: { type: 'vec4<f32>', value: vec4() },
         uQuality: { type: 'f32', value: quality.level },
+        uReflStrength: { type: 'f32', value: this.reflEnabled ? 1 : 0 },
       },
     });
     this.container.addChild(this.water.mesh, drawPondRim(shape, shape.cx | 0), this.surface);
@@ -164,7 +185,47 @@ export class PondView {
     });
   }
 
+  /**
+   * Rend les reflets : chaque objet proche de la berge du fond est retourné autour de sa base
+   * (sa position au sol), puis la couche est dessinée dans une texture du bassin (une image sur deux).
+   */
+  renderReflection(renderer: Renderer, objects: Container): void {
+    if (!this.reflEnabled) return;
+    if ((this.reflFrame++ & 1) === 1) return;
+    const { bbox, cy } = this.shape;
+    const flipped: Container[] = [];
+    const hidden: Container[] = [];
+    for (const c of objects.children) {
+      if (!c.visible) continue;
+      const { x, y } = c.position;
+      const relevant =
+        c.label !== 'noreflect' &&
+        x > bbox.x - 260 &&
+        x < bbox.x + bbox.width + 260 &&
+        y < cy &&
+        y > bbox.y - 700;
+      if (relevant) {
+        c.scale.y = -c.scale.y;
+        flipped.push(c);
+      } else {
+        c.visible = false;
+        hidden.push(c);
+      }
+    }
+    this.reflMatrix.set(1, 0, 0, 1, -bbox.x, -bbox.y);
+    renderer.render({
+      container: objects,
+      target: this.reflRT,
+      clear: true,
+      clearColor: [0, 0, 0, 0],
+      transform: this.reflMatrix,
+    });
+    for (const c of flipped) c.scale.y = -c.scale.y;
+    for (const c of hidden) c.visible = true;
+  }
+
   destroy(): void {
+    this.reflRT.destroy(true);
     this.koiRT.destroy(true);
     this.container.destroy({ children: true });
     this.underwater.destroy({ children: true });

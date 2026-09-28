@@ -207,7 +207,7 @@ export class GardenSystem implements SceneSystem {
       const o = useGame.getState().objects.find((x) => x.id === v.id);
       if (!o) continue;
       const e = CATALOG[o.kind];
-      if (v.tree) v.tree.sway(time, wind, v.phase);
+      if (v.tree) v.tree.sway(time, wind, v.phase, this.scene.sun, v.tree.root.scale.x);
       else if (e.category === 'plant') {
         v.g.skew.x =
           Math.sin(time * (0.7 + wind) + v.phase) *

@@ -10,6 +10,8 @@ out vec4 finalColor;
 uniform sampler2D uHeight;
 uniform sampler2D uKoi;
 uniform sampler2D uBed;
+uniform sampler2D uRefl;
+uniform float uReflStrength;
 
 uniform vec3 uSkyTop;
 uniform vec3 uSkyHorizon;
@@ -81,9 +83,21 @@ void main() {
   refl = max(refl, uAmbient * vec3(0.16, 0.2, 0.3));
   float edgeNoise = vnoise(vec2(vUV.x * 7.0, 1.0)) * 0.6 + vnoise(vec2(vUV.x * 23.0, 4.0)) * 0.4;
   float trees = smoothstep(0.2 + edgeNoise * 0.22, 0.05 + edgeNoise * 0.18, vUV.y + n.y * 0.25);
-  refl = mix(refl, uTreeCol, trees * 0.85);
+  refl = mix(refl, uTreeCol, trees * mix(0.85, 0.35, uReflStrength));
   float fres = 0.1 + 0.5 * pow(1.0 - vUV.y, 2.0) + 0.9 * length(slope);
   col = mix(col, refl, clamp(fres, 0.0, 0.75));
+
+  // Reflets des arbres, lanternes et rochers de la berge, déformés par les ondes
+  if (uReflStrength > 0.0) {
+    vec2 ruvR = vec2(vUV.x + n.x * 0.03 + sin(vUV.y * 90.0 + uTime * 1.3) * 0.0015 * (1.0 + uWind * 3.0), vUV.y + n.y * 0.045);
+    vec4 ro = texture(uRefl, ruvR);
+    if (ro.a > 0.002) {
+      vec3 rc = ro.rgb / ro.a;
+      rc = mix(rc, uDeep * 1.5 + refl * 0.3, 0.3);
+      float ra = ro.a * uReflStrength * (0.5 + 0.35 * (1.0 - vUV.y));
+      col = mix(col, rc, clamp(ra, 0.0, 0.85));
+    }
+  }
 
   // Reflets spéculaires du soleil et de la lune
   vec3 v = vec3(0.0, 0.57, 0.82);
@@ -98,6 +112,10 @@ void main() {
     float ld = length((vPos - uLantern.xy) / vec2(uLantern.z * 0.5, uLantern.z)) ;
     col += vec3(1.0, 0.72, 0.38) * exp(-ld * 2.5) * uLantern.w * (0.6 + 0.4 * sin(uTime * 3.0 + n.x * 20.0));
   }
+
+  // Ménisque : fin liseré lumineux le long de la berge
+  float meniscus = smoothstep(0.13, 0.07, depth) * smoothstep(0.03, 0.07, depth);
+  col += mix(uSkyHorizon, vec3(1.0), 0.3) * meniscus * (0.12 + 0.2 * length(slope)) * (0.4 + 0.6 * uAmbient.g);
 
   col = mix(col, uFogCol, uFog * 0.55);
   float edge = smoothstep(0.0, 0.05, depth);

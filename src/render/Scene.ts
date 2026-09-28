@@ -28,7 +28,7 @@ import { QUALITY, type QualityLevel, type QualityProfile } from './quality';
 import { SkyLayer } from './SkyLayer';
 import { sharedTextures } from './textures';
 import type { TreeLook } from './trees';
-import { TreeView } from './TreeView';
+import { DEFAULT_SUN, TreeView, type SunLight } from './TreeView';
 
 export interface SceneEnv {
   sky: SkyState;
@@ -111,6 +111,8 @@ export class Scene {
   accent: RGB | null = null;
   /** Lanternes (x, y, intensité) pour leur reflet dans l'eau. */
   lanterns: { x: number; y: number }[] = [];
+  /** Soleil vu par les arbres (modelé et ombres portées). */
+  sun: SunLight = { ...DEFAULT_SUN };
   /** Appelé à chaque éclair (pour le tonnerre). */
   onThunder?: () => void;
   /** Échelle de l'UI (pour savoir si la vue est tactile). */
@@ -392,6 +394,15 @@ export class Scene {
       return { x: w / 2 + (d / 70) * w * 0.5, y: horizonY - (alt / 50) * skyH, d };
     };
     const sunS = toScreen(sky.sunAzimuth, sky.sunAltitude);
+    {
+      const d = (sunS.d * Math.PI) / 180;
+      const alt = Math.max(3, sky.sunAltitude);
+      this.sun.side = clamp(sunS.d / 70, -1, 1);
+      this.sun.dx = -Math.sin(d);
+      this.sun.dy = Math.cos(d);
+      this.sun.len = Math.min(3, 1 / Math.tan((alt * Math.PI) / 180));
+      this.sun.strength = L.sunStrength * clamp((sky.sunAltitude + 2) / 6);
+    }
     setVec(u.uSunPos, [sunS.x, sunS.y]);
     setVec(u.uSunCol, L.sunColor);
     u.uSunVis = clamp((sky.sunAltitude + 3) / 6) * (1 - L.overcast * 0.8);
@@ -534,6 +545,7 @@ export class Scene {
       setVec(wu.uFogCol, L.fogColor);
       const p0 = PROFILE ? performance.now() : 0;
       p.update(dt, this.renderer);
+      p.renderReflection(this.renderer, this.objects);
       if (PROFILE) this.prof('pond', p0);
     }
 
@@ -582,7 +594,7 @@ export class Scene {
         thirst: 0,
       };
       tr.view.set(look);
-      tr.view.sway(t, L.wind, tr.phase);
+      tr.view.sway(t, L.wind, tr.phase, this.sun);
     }
   }
 

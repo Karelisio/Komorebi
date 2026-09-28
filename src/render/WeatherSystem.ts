@@ -1,7 +1,8 @@
 import { Container, Sprite } from 'pixi.js';
 import type { NatureActivity } from '@/world/events';
 import { WORLD } from '@/world/layout';
-import { Particles } from './particles';
+import { Particles, type Particle } from './particles';
+import type { PondView } from './PondView';
 import type { FrameLight, Scene, SceneEnv, SceneSystem } from './Scene';
 import { sharedTextures } from './textures';
 
@@ -33,6 +34,15 @@ export class WeatherSystem implements SceneSystem {
   private readonly fireflies: Firefly[] = [];
   private readonly flyLayer = new Container();
   private readonly birds: Bird[] = [];
+  private readonly floaters: {
+    sprite: Sprite;
+    pond: PondView;
+    x: number;
+    y: number;
+    rot: number;
+    vrot: number;
+    life: number;
+  }[] = [];
   private readonly birdLayer = new Container();
   private acc = { rain: 0, snow: 0, leaf: 0, petal: 0, meteor: 0, splash: 0, bird: 0, frog: 0 };
   onEvent?: (e: NatureEvent) => void;
@@ -132,6 +142,7 @@ export class WeatherSystem implements SceneSystem {
         sway: 18,
         fadeIn: 0.8,
         floor: cam.y + cam.height * (0.4 + Math.random() * 0.6),
+        onLand: (p) => this.land(p),
       });
     }
     const petalRate = season.sakura * (0.6 + L.wind * 2) * 3 * q;
@@ -151,9 +162,11 @@ export class WeatherSystem implements SceneSystem {
         sway: 14,
         fadeIn: 0.6,
         floor: cam.y + cam.height * (0.5 + Math.random() * 0.5),
+        onLand: (p) => this.land(p),
       });
     }
 
+    this.updateFloaters(dt, windPx);
     this.updateFireflies(dt, time, nature);
     this.updateBirds(dt, nature, w);
     this.updateMeteors(dt, nature, w);
@@ -162,6 +175,48 @@ export class WeatherSystem implements SceneSystem {
     this.screen.update(dt, 0);
     this.world.update(dt, windPx * 0.05);
     this.sky.update(dt, 0);
+  }
+
+  /** Une feuille ou un pétale qui touche l'eau y reste et dérive doucement. */
+  private land(p: Particle): void {
+    const pond = this.scene.pondAt(p.x, p.y);
+    if (!pond || this.floaters.length > 60) return;
+    pond.touch(p.x, p.y, 0.35, 0.01);
+    const s = new Sprite(p.sprite.texture);
+    s.anchor.set(0.5);
+    s.tint = p.sprite.tint;
+    s.scale.set(p.sprite.scale.x);
+    s.rotation = p.rot;
+    pond.surface.addChild(s);
+    p.life = 0.01;
+    this.floaters.push({
+      sprite: s,
+      pond,
+      x: p.x,
+      y: p.y,
+      rot: p.rot,
+      vrot: (Math.random() - 0.5) * 0.2,
+      life: 50 + Math.random() * 40,
+    });
+  }
+
+  private updateFloaters(dt: number, windPx: number): void {
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i]!;
+      f.life -= dt;
+      f.x += windPx * 0.02 * dt + Math.sin(f.life * 0.3) * 2 * dt;
+      f.y += Math.cos(f.life * 0.23) * 1.5 * dt;
+      f.rot += f.vrot * dt;
+      const h = f.pond.heightAtWorld(f.x, f.y);
+      if (!f.pond.contains(f.x, f.y)) f.life = Math.min(f.life, 1.5);
+      f.sprite.position.set(f.x, f.y + h * 3);
+      f.sprite.rotation = f.rot + h * 0.3;
+      f.sprite.alpha = Math.min(1, f.life / 3) * 0.95;
+      if (f.life <= 0) {
+        f.sprite.destroy();
+        this.floaters.splice(i, 1);
+      }
+    }
   }
 
   private updateFireflies(dt: number, time: number, nature: NatureActivity): void {

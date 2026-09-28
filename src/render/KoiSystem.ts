@@ -1,4 +1,4 @@
-import { Container, MeshRope, Point, Sprite } from 'pixi.js';
+import { Container, Graphics, MeshRope, Point, Sprite } from 'pixi.js';
 import { clock } from '@/engine/clock';
 import { spawnAgent, stepBoids, type BoidsWorld, type FishAgent, type Pellet } from '@/pond/boids';
 import { express } from '@/pond/genetics';
@@ -64,10 +64,11 @@ export class KoiSystem implements SceneSystem {
   }
 
   addPond(pond: PondView): void {
+    const weeds = this.makeWeeds(pond);
     const shadows = new Container();
     const fish = new Container();
     fish.sortableChildren = true;
-    pond.underwater.addChild(shadows, fish);
+    pond.underwater.addChild(weeds, shadows, fish);
     this.ponds.set(pond.shape.id, {
       pond,
       world: { shape: pond.shape, food: [], attractor: null, time: 0 },
@@ -75,6 +76,42 @@ export class KoiSystem implements SceneSystem {
       fish,
       pellets: new Map(),
     });
+  }
+
+  private readonly weeds: { g: Graphics; phase: number }[] = [];
+
+  /** Herbiers immergés près des berges, qui ondulent doucement (sous les koïs). */
+  private makeWeeds(pond: PondView): Container {
+    const c = new Container();
+    const rng = mulberry32(pond.shape.cx | 0);
+    const { bbox } = pond.shape;
+    const n = Math.round(pond.shape.rx / 30);
+    for (let i = 0; i < n; i++) {
+      const p = pond.shape.points[Math.floor(rng() * pond.shape.points.length)]!;
+      const k = 0.72 + rng() * 0.18;
+      const x = pond.shape.cx + (p.x - pond.shape.cx) * k - bbox.x;
+      const y = pond.shape.cy + (p.y - pond.shape.cy) * k - bbox.y;
+      const g = new Graphics();
+      const inward = Math.atan2(pond.shape.cy - bbox.y - y, pond.shape.cx - bbox.x - x);
+      const strands = 5 + Math.floor(rng() * 5);
+      for (let s = 0; s < strands; s++) {
+        const a = inward + (rng() - 0.5) * 1.6;
+        const len = 18 + rng() * 34;
+        const w = 2 + rng() * 2.5;
+        const ex = Math.cos(a) * len;
+        const ey = Math.sin(a) * len * 0.8;
+        const nx = -Math.sin(a) * w;
+        const ny = Math.cos(a) * w;
+        g.poly([0, 0, ex * 0.5 + nx, ey * 0.5 + ny, ex, ey, ex * 0.5 - nx, ey * 0.5 - ny]).fill({
+          color: rng() < 0.5 ? 0x2f5a34 : 0x3e6e3a,
+          alpha: 0.55 + rng() * 0.25,
+        });
+      }
+      g.position.set(x, y);
+      c.addChild(g);
+      this.weeds.push({ g, phase: rng() * 6 });
+    }
+    return c;
   }
 
   /** Nourrit : dépose quelques granulés autour du point touché. */
@@ -235,6 +272,9 @@ export class KoiSystem implements SceneSystem {
       }
     }
 
+    for (const w of this.weeds)
+      w.g.rotation =
+        Math.sin(time * 0.6 + w.phase) * 0.12 + Math.sin(time * 1.7 + w.phase * 2) * 0.03;
     const tintDeep = mixRgb([1, 1, 1], [0.55, 0.68, 0.66], 1);
     for (const v of this.views.values()) {
       const rt = this.ponds.get(v.record.pondId);

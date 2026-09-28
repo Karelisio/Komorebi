@@ -317,7 +317,7 @@ export function makeClumpTexture(
   }));
   const inside = (x: number, y: number) => blobs.some((b) => Math.hypot(x - b.x, y - b.y) < b.r);
   // Fond sombre pour éviter les trous
-  const bg = kind === 'blossom' ? 200 : 95;
+  const bg = kind === 'blossom' ? 228 : 95;
   for (const b of blobs) {
     const g = ctx.createRadialGradient(b.x, b.y, b.r * 0.2, b.x, b.y, b.r);
     g.addColorStop(0, `rgba(${bg},${bg},${bg},0.95)`);
@@ -328,7 +328,7 @@ export function makeClumpTexture(
     ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
     ctx.fill();
   }
-  const n = kind === 'needle' ? 520 : 240;
+  const n = kind === 'needle' ? 520 : kind === 'leaf' ? 170 : 220;
   for (let i = 0; i < n; i++) {
     let x = 0;
     let y = 0;
@@ -385,8 +385,8 @@ export function makeClumpTexture(
         ctx.fill();
       }
     } else {
-      const l = 5 + rng() * 4;
-      const w = 2.2 + rng() * 1.3;
+      const l = 6.5 + rng() * 4;
+      const w = 3 + rng() * 1.6;
       ctx.beginPath();
       ctx.moveTo(x - Math.cos(a) * l, y - Math.sin(a) * l);
       ctx.quadraticCurveTo(

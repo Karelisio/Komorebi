@@ -88,6 +88,7 @@ export class GardenWall {
     const rng = mulberry32(7);
     const y = WORLD.horizon + 34;
     parent.addChild(this.hedge);
+    this.hedge.label = 'noreflect';
     this.hedge.zIndex = y;
     for (let x = -60; x < WORLD.width + 60; x += 34 + rng() * 30) {
       const r = 26 + rng() * 22;
