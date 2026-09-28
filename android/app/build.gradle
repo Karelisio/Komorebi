@@ -1,0 +1,147 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+import groovy.json.JsonSlurper
+
+// ---------------------------------------------------------------------------
+// Version (nom + code) : dérivée du tag git en CI (scripts/version-from-tag.mjs
+// écrit VERSION_NAME/VERSION_CODE dans l'environnement), avec repli sur
+// package.json en local.
+// ---------------------------------------------------------------------------
+
+/** Première valeur non vide entre la propriété Gradle -P<name> et la variable d'env <name>. */
+def propOrEnv = { String name ->
+    def p = findProperty(name)
+    if (p != null && p.toString().trim().length() > 0) return p.toString().trim()
+    def e = System.getenv(name)
+    if (e != null && e.trim().length() > 0) return e.trim()
+    return null
+}
+
+/** Lit "version" dans package.json à la racine du dépôt ; repli "0.1.0". */
+def readPackageVersion = {
+    try {
+        def pkgFile = new File(rootProject.projectDir, '../package.json')
+        def json = new JsonSlurper().parse(pkgFile)
+        def v = json?.version?.toString()
+        return (v != null && v.length() > 0) ? v : '0.1.0'
+    } catch (Exception ignored) {
+        return '0.1.0'
+    }
+}
+
+/** major*10000 + minor*100 + patch à partir d'un versionName "X.Y.Z[-pre]". */
+def versionCodeFromName = { String name ->
+    def m = (name =~ /^(\d+)\.(\d+)\.(\d+)/)
+    if (!m.find()) return 1
+    int major = m.group(1) as int
+    int minor = m.group(2) as int
+    int patch = m.group(3) as int
+    return major * 10000 + minor * 100 + patch
+}
+
+def versionNameOverride = propOrEnv('VERSION_NAME')
+def versionCodeOverride = propOrEnv('VERSION_CODE')
+
+def resolvedVersionName = versionNameOverride ?: readPackageVersion()
+def resolvedVersionCode = (versionCodeOverride != null && versionCodeOverride.isInteger())
+        ? versionCodeOverride.toInteger()
+        : versionCodeFromName(resolvedVersionName)
+
+// ---------------------------------------------------------------------------
+// Signature release : android/keystore.properties (storeFile, storePassword,
+// keyAlias, keyPassword) si présent, sinon variables d'environnement
+// ANDROID_KEYSTORE_PATH / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS /
+// ANDROID_KEY_PASSWORD. Le signingConfig release n'est appliqué que si toutes
+// les valeurs sont disponibles ; sinon le build release reste non signé
+// (utile pour `assembleRelease` en local sans clé).
+// ---------------------------------------------------------------------------
+
+def keystorePropsFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+def hasKeystoreProps = keystorePropsFile.exists()
+if (hasKeystoreProps) {
+    keystorePropsFile.withInputStream { stream -> keystoreProps.load(stream) }
+}
+
+def resolvedStoreFile = hasKeystoreProps ? keystoreProps.getProperty('storeFile') : System.getenv('ANDROID_KEYSTORE_PATH')
+def resolvedStorePassword = hasKeystoreProps ? keystoreProps.getProperty('storePassword') : System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def resolvedKeyAlias = hasKeystoreProps ? keystoreProps.getProperty('keyAlias') : System.getenv('ANDROID_KEY_ALIAS')
+def resolvedKeyPassword = hasKeystoreProps ? keystoreProps.getProperty('keyPassword') : System.getenv('ANDROID_KEY_PASSWORD')
+
+def hasSigningConfig = resolvedStoreFile && resolvedStorePassword && resolvedKeyAlias && resolvedKeyPassword
+
+if (!hasSigningConfig) {
+    logger.info('Komorebi: aucune configuration de signature release trouvée (keystore.properties ou variables ANDROID_KEYSTORE_*). Le build release ne sera pas signé.')
+}
+
+android {
+    namespace = "com.karelisio.komorebi"
+    compileSdk = rootProject.ext.compileSdkVersion
+    // Aligné sur compileOptions (Java 21, cf. capacitor.build.gradle) pour que
+    // javac et kotlinc ciblent le même bytecode.
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+    defaultConfig {
+        applicationId "com.karelisio.komorebi"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode resolvedVersionCode
+        versionName resolvedVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (hasSigningConfig) {
+            release {
+                storeFile rootProject.file(resolvedStoreFile)
+                storePassword resolvedStorePassword
+                keyAlias resolvedKeyAlias
+                keyPassword resolvedKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasSigningConfig) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

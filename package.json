@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cap:sync": "cap sync android",
-    "assets": "capacitor-assets generate --android"
+    "assets": "capacitor-assets generate --android --iconBackgroundColor '#1d2a44' --iconBackgroundColorDark '#1d2a44' --splashBackgroundColor '#f5efe3' --splashBackgroundColorDark '#1d2a44' && node scripts/icons.mjs",
+    "icons": "node scripts/icons.mjs"
   },
   "engines": {
     "node": ">=20"

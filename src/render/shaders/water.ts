@@ -52,15 +52,15 @@ void main() {
 
   // Caustiques (réseau de Worley animé)
   if (uCaustics > 0.01) {
-    vec2 cp = vPos * 0.014 + n.xy * 0.6 + vnoise(vPos * 0.004 + uTime * 0.05) * 0.8;
+    vec2 cp = vPos * 0.009 + n.xy * 0.5 + vnoise(vPos * 0.003 + uTime * 0.04) * 0.9;
     vec2 w1 = worley(cp, uTime * 0.45);
-    float c = 1.0 - smoothstep(0.0, 0.3, w1.y - w1.x);
+    float c = 1.0 - smoothstep(0.0, 0.45, w1.y - w1.x);
     if (uQuality > 1.5) {
       vec2 w2 = worley(cp * 1.37 + 5.3, -uTime * 0.37);
-      c = c * 0.6 + (1.0 - smoothstep(0.0, 0.28, w2.y - w2.x)) * 0.4;
+      c = c * 0.6 + (1.0 - smoothstep(0.0, 0.42, w2.y - w2.x)) * 0.4;
     }
-    c = pow(c, 4.0);
-    col += uSunCol * c * uCaustics * pow(1.0 - depth, 1.5) * 0.12;
+    c = pow(c, 5.0);
+    col += uSunCol * c * uCaustics * pow(1.0 - depth, 1.5) * 0.09;
   }
 
   // Koïs (et leurs ombres) sous la surface, réfractés

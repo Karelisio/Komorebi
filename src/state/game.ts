@@ -28,22 +28,42 @@ function starterObjects(now: number): GardenObject[] {
     harvestAt: now,
   });
   return [
+    // Autour du bassin
     obj('lantern', 905, 1060),
     obj('rock', 300, 1010),
     obj('stone', 345, 1030),
     obj('stone', 880, 1400),
+    obj('iris', 330, 1370),
+    obj('iris', 860, 1120),
+    obj('fern', 960, 1120),
+    obj('moss', 250, 1080),
+    obj('moss', 390, 1440),
+    // Massifs taillés et sous-bois
+    obj('azalea', 420, 960, 0.8),
+    obj('azalea', 760, 900, 0.7),
+    obj('azalea', 810, 930, 0.6),
+    obj('fern', 690, 700),
+    obj('moss', 740, 720),
+    obj('stone', 780, 690),
+    // Le long de l'allée
+    obj('lantern-yukimi', 330, 760),
+    obj('stone', 285, 780),
+    obj('tsukubai', 180, 1180),
+    obj('fern', 230, 1210),
+    obj('bench', 265, 1560),
+    // Pas japonais vers le jardin sec
     obj('stepping', 610, 1455),
     obj('stepping', 655, 1505),
     obj('stepping', 625, 1555),
-    obj('rock', 400, 2070),
-    obj('stone', 458, 2105),
-    obj('stone', 800, 2020),
     obj('stepping', 700, 1610),
     obj('stepping', 745, 1665),
     obj('stepping', 720, 1725),
-    obj('moss', 250, 1080),
-    obj('fern', 960, 1120),
-    obj('azalea', 420, 960, 0.7),
+    obj('stepping', 760, 1790),
+    // Jardin sec
+    obj('rock', 400, 2070),
+    obj('stone', 458, 2105),
+    obj('stone', 800, 2020),
+    obj('rock', 870, 2150),
   ];
 }
 

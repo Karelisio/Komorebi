@@ -33,8 +33,10 @@ function maple(r) {
 
 /** Koï (kohaku) vu du dessus, tête à droite, centré en (0,0). */
 function koi(color = true) {
-  const body = 'M235,0 C230,-50 170,-82 80,-84 C-10,-84 -110,-48 -190,-13 L-190,13 C-110,48 -10,84 80,84 C170,82 230,50 235,0 Z';
-  const tail = 'M-182,-10 C-230,-26 -272,-92 -312,-112 C-288,-44 -288,44 -312,112 C-272,92 -230,26 -182,10 Z';
+  const body =
+    'M235,0 C230,-50 170,-82 80,-84 C-10,-84 -110,-48 -190,-13 L-190,13 C-110,48 -10,84 80,84 C170,82 230,50 235,0 Z';
+  const tail =
+    'M-182,-10 C-230,-26 -272,-92 -312,-112 C-288,-44 -288,44 -312,112 C-272,92 -230,26 -182,10 Z';
   const finL = 'M120,-66 C104,-138 50,-170 12,-162 C44,-128 70,-92 88,-70 Z';
   const finR = 'M120,66 C104,138 50,170 12,162 C44,128 70,92 88,70 Z';
   const pelL = 'M-40,-62 C-60,-104 -92,-118 -112,-110 C-90,-92 -72,-74 -60,-58 Z';
@@ -87,7 +89,10 @@ function rays(opacity = 1) {
 
 function ripples(cx, cy) {
   return [150, 230, 310, 380]
-    .map((r, i) => `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r * 0.92}" fill="none" stroke="#fff" stroke-opacity="${0.16 - i * 0.03}" stroke-width="${5 - i}"/>`)
+    .map(
+      (r, i) =>
+        `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r * 0.92}" fill="none" stroke="#fff" stroke-opacity="${0.16 - i * 0.03}" stroke-width="${5 - i}"/>`,
+    )
     .join('');
 }
 
@@ -192,5 +197,18 @@ if (existsSync('android/app/src/main/res')) {
     mkdirSync(dir, { recursive: true });
     await png(mono, `${dir}/ic_launcher_monochrome.png`, size);
   }
+}
+// Icône adaptative : pas de retrait supplémentaire (le premier plan est déjà dans la zone sûre)
+// et couche monochrome pour les icônes thématiques (Android 13+).
+if (existsSync('android/app/src/main/res/mipmap-anydpi-v26')) {
+  const xml = `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@mipmap/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
+</adaptive-icon>
+`;
+  writeFileSync('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml', xml);
+  writeFileSync('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml', xml);
 }
 console.log('icônes générées dans assets/ et public/');
