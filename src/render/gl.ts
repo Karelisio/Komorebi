@@ -45,13 +45,15 @@ float vnoise(vec2 p) {
 float fbm(vec2 p, int octaves) {
   float v = 0.0;
   float a = 0.5;
+  float norm = 0.0;
   for (int i = 0; i < 6; i++) {
     if (i >= octaves) break;
     v += a * vnoise(p);
+    norm += a;
     p = p * 2.03 + vec2(17.1, 9.2);
     a *= 0.5;
   }
-  return v;
+  return v / norm;
 }
 // Worley animé : renvoie (F1, F2).
 vec2 worley(vec2 p, float t) {

@@ -1,22 +1,23 @@
 import type { Container, Texture } from 'pixi.js';
 import { createShaderMesh, quadGeometry, vec2, vec3 } from './gl';
-import { WORLD } from '@/world/layout';
+import { GARDEN_PATH, PATH_SAMPLES, smoothPath, WORLD } from '@/world/layout';
 import { GROUND_FRAGMENT } from './shaders/ground';
 
 export class GroundView {
   readonly sm;
 
-  constructor(parent: Container, noise: Texture) {
+  constructor(parent: Container, noise: Texture, grass: Texture) {
     const top = WORLD.horizon - 30;
     this.sm = createShaderMesh({
       name: 'ground',
       fragment: GROUND_FRAGMENT,
       geometry: quadGeometry(-400, top, WORLD.width + 800, WORLD.height - top + 400),
-      textures: { uNoise: noise.source },
+      textures: { uNoise: noise.source, uGrass: grass.source },
       uniforms: {
-        uMoss: { type: 'vec3<f32>', value: vec3(0.36, 0.49, 0.3) },
-        uMossDry: { type: 'vec3<f32>', value: vec3(0.52, 0.55, 0.36) },
-        uEarth: { type: 'vec3<f32>', value: vec3(0.45, 0.39, 0.3) },
+        uTint: { type: 'vec3<f32>', value: vec3(1, 1, 1) },
+        uDry: { type: 'vec3<f32>', value: vec3(1.25, 1.1, 0.75) },
+        uHazeCol: { type: 'vec3<f32>', value: vec3(0.6, 0.7, 0.75) },
+        uWindDir: { type: 'vec2<f32>', value: vec2(0.8, 0.6) },
         uAmbient: { type: 'vec3<f32>', value: vec3(1, 1, 1) },
         uSunCol: { type: 'vec3<f32>', value: vec3(1, 1, 1) },
         uSun: { type: 'f32', value: 0 },
@@ -27,6 +28,11 @@ export class GroundView {
         uLight: { type: 'vec2<f32>', value: vec2() },
         uCanopy: { type: 'vec4<f32>', value: new Float32Array(8 * 4).fill(-9999), size: 8 },
         uHorizon: { type: 'f32', value: WORLD.horizon },
+        uPath: {
+          type: 'vec2<f32>',
+          value: new Float32Array(smoothPath(GARDEN_PATH, PATH_SAMPLES).flatMap((p) => [p.x, p.y])),
+          size: PATH_SAMPLES,
+        },
       },
     });
     parent.addChild(this.sm.mesh);

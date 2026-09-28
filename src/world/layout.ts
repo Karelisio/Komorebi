@@ -4,7 +4,7 @@ import { mulberry32 } from '@/world/random';
 export const WORLD = { width: 1200, height: 2400, horizon: 520 } as const;
 
 /** Vue par défaut : centre et largeur visible. */
-export const DEFAULT_VIEW = { x: 600, y: 930, width: 760 } as const;
+export const DEFAULT_VIEW = { x: 600, y: 840, width: 760 } as const;
 
 export interface Point {
   x: number;
@@ -72,6 +72,45 @@ export function pondDepthAt(shape: PondShape, p: Point): number {
   const dy = (p.y - shape.cy) / shape.ry;
   return Math.min(1, Math.hypot(dx, dy));
 }
+
+/** Allée de gravier (10 points) : du premier plan vers le mur, en contournant le bassin. */
+export const GARDEN_PATH: Point[] = [
+  { x: 140, y: 2380 },
+  { x: 90, y: 2120 },
+  { x: 150, y: 1870 },
+  { x: 95, y: 1620 },
+  { x: 150, y: 1380 },
+  { x: 120, y: 1150 },
+  { x: 235, y: 960 },
+  { x: 400, y: 840 },
+  { x: 430, y: 700 },
+  { x: 560, y: 590 },
+];
+
+/** Échantillonne une courbe de Catmull-Rom passant par les points. */
+export function smoothPath(pts: readonly Point[], samples: number): Point[] {
+  const out: Point[] = [];
+  const n = pts.length - 1;
+  for (let i = 0; i < samples; i++) {
+    const u = (i / (samples - 1)) * n;
+    const k = Math.min(n - 1, Math.floor(u));
+    const t = u - k;
+    const p0 = pts[Math.max(0, k - 1)]!;
+    const p1 = pts[k]!;
+    const p2 = pts[k + 1]!;
+    const p3 = pts[Math.min(n, k + 2)]!;
+    const f = (a: number, b: number, c: number, d: number) =>
+      0.5 *
+      (2 * b +
+        (-a + c) * t +
+        (2 * a - 5 * b + 4 * c - d) * t * t +
+        (-a + 3 * b - 3 * c + d) * t * t * t);
+    out.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
+  }
+  return out;
+}
+
+export const PATH_SAMPLES = 24;
 
 export const MAIN_POND = makePondShape('main', 600, 1190, 330, 205, 7);
 export const SECOND_POND = makePondShape('second', 360, 1690, 215, 118, 13);

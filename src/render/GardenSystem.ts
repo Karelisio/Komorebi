@@ -12,12 +12,14 @@ import { Particles } from './particles';
 import { SandView } from './SandView';
 import type { FrameLight, Scene, SceneEnv, SceneSystem } from './Scene';
 import { sharedTextures } from './textures';
-import { drawTree, treeLookKey, type TreeLook } from './trees';
+import { treeLookKey, type TreeLook } from './trees';
+import { TreeView } from './TreeView';
 
 interface ObjectView {
   id: string;
   root: Container;
   g: Graphics;
+  tree: TreeView | null;
   key: string;
   glow: Sprite | null;
   light: { x: number; y: number; radius: number } | null;
@@ -132,6 +134,7 @@ export class GardenSystem implements SceneSystem {
           id: o.id,
           root,
           g,
+          tree: null,
           key: '',
           glow: null,
           light: null,
@@ -144,7 +147,11 @@ export class GardenSystem implements SceneSystem {
       const key = look.tree ? treeLookKey(look.tree) : look.decor ? decorLookKey(look.decor) : '';
       if (key !== v.key) {
         if (look.tree) {
-          drawTree(v.g, look.tree);
+          if (!v.tree) {
+            v.tree = new TreeView();
+            v.root.addChild(v.tree.root);
+          }
+          v.tree.set(look.tree);
           v.light = null;
         } else if (look.decor) {
           v.light = drawDecor(v.g, look.decor).light ?? null;
@@ -153,7 +160,7 @@ export class GardenSystem implements SceneSystem {
       }
       v.root.position.set(o.x, o.y);
       v.root.zIndex = o.y;
-      v.g.scale.x = o.flip && look.tree ? -1 : 1;
+      if (v.tree) v.tree.root.scale.x = o.flip ? -1 : 1;
       v.root.alpha = moving === o.id ? 0.55 : 1;
       if (v.light) {
         if (!v.glow) {
@@ -191,7 +198,8 @@ export class GardenSystem implements SceneSystem {
       const o = useGame.getState().objects.find((x) => x.id === v.id);
       if (!o) continue;
       const e = CATALOG[o.kind];
-      if (e.category === 'tree' || e.category === 'plant') {
+      if (v.tree) v.tree.sway(time, wind, v.phase);
+      else if (e.category === 'plant') {
         v.g.skew.x =
           Math.sin(time * (0.7 + wind) + v.phase) *
           (0.008 + wind * 0.035) *
@@ -250,8 +258,11 @@ export class GardenSystem implements SceneSystem {
           harvestAt: 0,
         };
         const look = this.lookFor(fake, env, 0);
-        if (look.tree) drawTree(g, look.tree);
-        else if (look.decor) drawDecor(g, look.decor);
+        if (look.tree) {
+          const tv = new TreeView();
+          tv.set(look.tree);
+          g.addChild(tv.root);
+        } else if (look.decor) drawDecor(g, look.decor);
       }
       const ring = new Graphics();
       ring

@@ -110,55 +110,92 @@ function taper(
   g.circle(x2, y2, w2).fill(color);
 }
 
-function drawClusters(
-  g: Graphics,
+export type ClumpKind = 'leaf' | 'maple' | 'blossom' | 'needle';
+
+/** Amas de feuillage à poser en sprite (texture peinte, teintée). */
+export interface Clump {
+  x: number;
+  y: number;
+  r: number;
+  /** Aplatissement vertical (1 = rond). */
+  ry: number;
+  tint: number;
+  kind: ClumpKind;
+  alpha: number;
+}
+
+export interface TreeResult {
+  clumps: Clump[];
+}
+
+function crownClumps(
+  out: Clump[],
   tips: Tip[],
   p: Palette,
   rng: Rng,
   flat: number,
   snow: number,
+  kind: ClumpKind,
 ): void {
-  const ry = 1 - flat * 0.45;
-  const dark = rgbToHex(p.dark);
-  // Masse d'ombre commune pour donner du volume
-  for (const t of tips)
-    g.ellipse(t.x + t.r * 0.1, t.y + t.r * 0.18, t.r * 1.0, t.r * 0.9 * ry).fill(dark);
-  // Touches de feuillage : couleur selon la hauteur dans l'amas (dessus éclairé)
-  const dabs: { x: number; y: number; r: number; k: number }[] = [];
-  for (const t of tips) {
-    const n = 9 + Math.floor(rng() * 6);
-    for (let k = 0; k < n; k++) {
-      const a = rng() * Math.PI * 2;
-      const d = Math.sqrt(rng()) * t.r * 0.85;
-      const x = t.x + Math.cos(a) * d;
-      const y = t.y + Math.sin(a) * d * ry;
-      const lightK = 0.5 - (y - t.y) / (t.r * 2) - (x - t.x) / (t.r * 4) + (rng() - 0.5) * 0.35;
-      dabs.push({ x, y, r: t.r * (0.22 + rng() * 0.16), k: lightK });
-    }
+  if (!tips.length) return;
+  const ry = 1 - flat * 0.4;
+  const ys = tips.map((t) => t.y);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+  const range = Math.max(1, bottom - top);
+  const sorted = [...tips].sort((a, b) => a.y - b.y);
+  // Masse d'ombre (arrière)
+  for (const t of sorted)
+    out.push({
+      x: t.x + t.r * 0.15,
+      y: t.y + t.r * 0.22,
+      r: t.r * 1.1,
+      ry,
+      tint: rgbToHex(p.dark),
+      kind: kind === 'blossom' ? 'leaf' : kind,
+      alpha: 0.9,
+    });
+  // Masse principale : plus claire en haut de la couronne
+  for (const t of sorted) {
+    const k = 1 - (t.y - top) / range;
+    const c = mixRgb(p.mid, p.light, 0.25 + k * 0.55 + (rng() - 0.5) * 0.2);
+    out.push({ x: t.x, y: t.y, r: t.r, ry, tint: rgbToHex(c), kind, alpha: 1 });
   }
-  dabs.sort((a, b) => a.k - b.k);
-  for (const d of dabs) {
-    const k = Math.max(0, Math.min(1, d.k));
-    const c = k < 0.5 ? mixRgb(p.dark, p.mid, k * 2) : mixRgb(p.mid, p.light, (k - 0.5) * 2);
-    g.ellipse(d.x, d.y, d.r, d.r * 0.85 * ry).fill(rgbToHex(c));
+  // Touches de lumière, côté soleil (haut-gauche)
+  for (const t of sorted) {
+    if (rng() < 0.35) continue;
+    out.push({
+      x: t.x - t.r * 0.3,
+      y: t.y - t.r * 0.35 * ry,
+      r: t.r * 0.55,
+      ry,
+      tint: rgbToHex(p.light),
+      kind,
+      alpha: 0.9,
+    });
   }
   if (snow > 0.05) {
-    for (const t of tips) {
-      g.ellipse(t.x - t.r * 0.1, t.y - t.r * 0.62 * ry, t.r * 0.7, t.r * 0.22 * ry).fill({
-        color: rgbToHex(SNOW),
+    for (const t of sorted)
+      out.push({
+        x: t.x - t.r * 0.05,
+        y: t.y - t.r * 0.55 * ry,
+        r: t.r * 0.75,
+        ry: ry * 0.4,
+        tint: rgbToHex(SNOW),
+        kind: 'leaf',
         alpha: snow,
       });
-    }
   }
 }
 
-function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng): void {
+function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng, out: Clump[]): void {
   const size = look.height * (0.22 + 0.78 * look.growth);
-  const depth = Math.max(1, Math.round(1.5 + look.growth * 3.5 - look.prune * 0.8));
+  const depth = Math.max(1, Math.round(2 + look.growth * 3.5 - look.prune * 0.8));
   const { palette, amount } = foliagePalette(look);
   const bark = rgbToHex(mixRgb(BARK, BARK_LIGHT, look.species === 'cherry' ? 0.5 : 0.1));
   const tips: Tip[] = [];
-  const spread = (look.species === 'maple' ? 0.62 : 0.55) + look.prune * 0.25;
+  // Couronne large et aérée (érable du Japon), plus ronde pour le cerisier
+  const spread = (look.species === 'maple' ? 0.78 : 0.62) + look.prune * 0.2;
 
   const branch = (x: number, y: number, angle: number, len: number, w: number, d: number): void => {
     const bend = (rng() - 0.5) * 0.25;
@@ -166,16 +203,17 @@ function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng): void {
     const y2 = y - Math.cos(angle + bend) * len;
     taper(g, x, y, w, x2, y2, w * 0.66, bark);
     if (d <= 0) {
-      tips.push({ x: x2, y: y2, r: size * (0.1 + rng() * 0.05) * (1 + look.prune * 0.4) });
+      tips.push({ x: x2, y: y2, r: size * (0.075 + rng() * 0.04) * (1 + look.prune * 0.5) });
       return;
     }
     const n = 2 + (rng() < 0.4 - look.prune * 0.3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const t = n === 1 ? 0 : i / (n - 1) - 0.5;
-      const a = angle * 0.82 + t * spread * 2 + (rng() - 0.5) * 0.3;
+      // Les branches s'étalent : l'angle s'ouvre vers l'horizontale en montant
+      const a = angle * 0.9 + t * spread * 2 + (rng() - 0.5) * 0.35;
       branch(x2, y2, a, len * (0.66 + rng() * 0.14), w * 0.66, d - 1);
     }
-    if (d <= 2 && rng() < 0.5) tips.push({ x: x2, y: y2, r: size * 0.08 * (0.8 + rng() * 0.4) });
+    if (d <= 2 && rng() < 0.45) tips.push({ x: x2, y: y2, r: size * 0.065 * (0.8 + rng() * 0.4) });
   };
 
   const trunkLen = size * (0.38 - look.prune * 0.08);
@@ -188,13 +226,15 @@ function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng): void {
     // On retire des amas à mesure que les feuilles tombent.
     const kept = tips.filter(() => rng() < 0.15 + amount * 0.85);
     const shrink = 0.55 + 0.45 * amount;
-    drawClusters(
-      g,
-      kept.map((t) => ({ ...t, r: t.r * shrink })),
+    const blossom = look.species === 'cherry' && look.season.sakura > 0.35;
+    crownClumps(
+      out,
+      kept.map((t) => ({ ...t, r: t.r * shrink * 1.15 })),
       dull(palette, look.thirst),
       rng,
       look.prune,
       look.snow,
+      blossom ? 'blossom' : look.species === 'maple' ? 'maple' : 'leaf',
     );
   } else if (look.snow > 0.05) {
     for (const t of tips)
@@ -205,7 +245,7 @@ function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng): void {
   }
 }
 
-function drawPine(g: Graphics, look: TreeLook, rng: Rng): void {
+function drawPine(g: Graphics, look: TreeLook, rng: Rng, out: Clump[]): void {
   const size = look.height * (0.25 + 0.75 * look.growth);
   const bark = rgbToHex(BARK);
   const palette = dull(foliagePalette(look).palette, look.thirst);
@@ -239,21 +279,46 @@ function drawPine(g: Graphics, look: TreeLook, rng: Rng): void {
   }
   pads.push({ x, y: y - size * 0.03, r: size * 0.12 });
   // Plateaux « nuages » typiques des pins taillés (niwaki)
-  const dark = rgbToHex(palette.dark);
-  const mid = rgbToHex(palette.mid);
-  const light = rgbToHex(palette.light);
-  for (const p of pads) g.ellipse(p.x, p.y + p.r * 0.12, p.r * 1.25, p.r * 0.5).fill(dark);
-  for (const p of pads)
-    g.ellipse(p.x - p.r * 0.05, p.y - p.r * 0.05, p.r * 1.1, p.r * 0.4).fill(mid);
-  for (const p of pads)
-    g.ellipse(p.x - p.r * 0.2, p.y - p.r * 0.2, p.r * 0.7, p.r * 0.2).fill({
-      color: light,
+  const sorted = [...pads].sort((a, b) => a.y - b.y);
+  for (const p of sorted)
+    out.push({
+      x: p.x + p.r * 0.08,
+      y: p.y + p.r * 0.14,
+      r: p.r * 1.3,
+      ry: 0.5,
+      tint: rgbToHex(palette.dark),
+      kind: 'needle',
+      alpha: 1,
+    });
+  for (const p of sorted)
+    out.push({
+      x: p.x,
+      y: p.y,
+      r: p.r * 1.15,
+      ry: 0.45,
+      tint: rgbToHex(mixRgb(palette.mid, palette.light, 0.35)),
+      kind: 'needle',
+      alpha: 1,
+    });
+  for (const p of sorted)
+    out.push({
+      x: p.x - p.r * 0.2,
+      y: p.y - p.r * 0.16,
+      r: p.r * 0.65,
+      ry: 0.4,
+      tint: rgbToHex(palette.light),
+      kind: 'needle',
       alpha: 0.85,
     });
   if (look.snow > 0.05) {
-    for (const p of pads)
-      g.ellipse(p.x - p.r * 0.1, p.y - p.r * 0.3, p.r * 1.05, p.r * 0.18).fill({
-        color: rgbToHex(SNOW),
+    for (const p of sorted)
+      out.push({
+        x: p.x - p.r * 0.05,
+        y: p.y - p.r * 0.25,
+        r: p.r * 1.0,
+        ry: 0.2,
+        tint: rgbToHex(SNOW),
+        kind: 'leaf',
         alpha: look.snow,
       });
   }
@@ -316,8 +381,9 @@ function drawBamboo(g: Graphics, look: TreeLook, rng: Rng): void {
   }
 }
 
-/** Dessine un arbre procédural, base en (0, 0), vers le haut. */
-export function drawTree(g: Graphics, look: TreeLook): void {
+/** Dessine le bois d'un arbre (base en (0, 0), vers le haut) et renvoie ses amas de feuillage. */
+export function drawTree(g: Graphics, look: TreeLook): TreeResult {
+  const clumps: Clump[] = [];
   g.clear();
   const rng = mulberry32(look.seed);
   // Ombre portée au sol
@@ -328,15 +394,16 @@ export function drawTree(g: Graphics, look: TreeLook): void {
   switch (look.species) {
     case 'maple':
     case 'cherry':
-      drawBroadleaf(g, look, rng);
+      drawBroadleaf(g, look, rng, clumps);
       break;
     case 'pine':
-      drawPine(g, look, rng);
+      drawPine(g, look, rng, clumps);
       break;
     case 'bamboo':
       drawBamboo(g, look, rng);
       break;
   }
+  return { clumps };
 }
 
 /** Clé de cache : on ne redessine que si l'apparence change visiblement. */

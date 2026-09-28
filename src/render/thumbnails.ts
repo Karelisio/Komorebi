@@ -3,7 +3,7 @@ import { CATALOG, type CatalogId } from '@/garden/catalog';
 import { computeSeason } from '@/world/season';
 import { drawDecor } from './decor';
 import type { Scene } from './Scene';
-import { drawTree } from './trees';
+import { TreeView } from './TreeView';
 
 const cache = new Map<string, string>();
 
@@ -13,9 +13,10 @@ export function thumbnail(scene: Scene, kind: CatalogId): string {
   if (hit) return hit;
   const e = CATALOG[kind];
   const season = scene.env?.season ?? computeSeason(new Date(), 45);
-  const g = new Graphics();
-  if (e.tree)
-    drawTree(g, {
+  const g = new Container();
+  if (e.tree) {
+    const tv = new TreeView();
+    tv.set({
       species: e.tree,
       seed: 7,
       growth: 0.85,
@@ -25,8 +26,10 @@ export function thumbnail(scene: Scene, kind: CatalogId): string {
       thirst: 0,
       height: e.height,
     });
-  else
-    drawDecor(g, {
+    g.addChild(tv.root);
+  } else {
+    const gr = new Graphics();
+    drawDecor(gr, {
       kind,
       seed: 7,
       growth: 1,
@@ -36,6 +39,8 @@ export function thumbnail(scene: Scene, kind: CatalogId): string {
       thirst: 0,
       flip: false,
     });
+    g.addChild(gr);
+  }
   const box = new Container();
   box.addChild(g);
   const b = box.getLocalBounds();

@@ -27,6 +27,13 @@ uniform float uWind;
 uniform vec2 uStarShift;
 uniform int uOctaves;
 uniform float uFlash;
+uniform float uCamX;
+uniform vec3 uMtn;
+uniform vec3 uForest;
+uniform vec3 uHaze;
+uniform float uSnowLine;
+uniform float uSunSide;
+uniform vec3 uSunLit;
 
 ${GLSL_NOISE}
 
@@ -83,16 +90,15 @@ void main() {
     }
   }
 
-  // Nuages en couches, étirés près de l'horizon
-  if (uClouds > 0.01) {
-    float persp = 0.35 + t * 1.4;
-    vec2 cp = vec2(p.x / uScreen.y * 2.2 + uTime * uWind * 0.012, above / uScreen.y * 5.0 / persp);
-    float n = fbm(cp * vec2(1.0, 1.8), uOctaves);
-    float cover = smoothstep(1.0 - uClouds * 0.85, 1.05 - uClouds * 0.55, n);
-    float shade = fbm(cp * 1.7 + 11.0, 2);
-    vec3 cc = mix(uCloudShade, uCloudLit, smoothstep(0.3, 0.75, shade));
-    cc += uSunCol * uSunVis * exp(-sdist * 3.0) * 0.35;
-    col = mix(col, cc, cover * 0.92 * smoothstep(0.0, 0.08, t));
+  // Voile nuageux (temps couvert) ; les cumulus sont des sprites peints.
+  if (uClouds > 0.45) {
+    float drift = uTime * uWind * 0.004;
+    vec2 cp = vec2(p.x / uScreen.y * 1.8 + drift, above / uScreen.y * 3.0);
+    float n = fbm(cp, 3);
+    float veil = smoothstep(0.45, 1.0, uClouds);
+    float cover = smoothstep(0.3, 0.7, n) * veil;
+    vec3 cc = mix(uCloudShade, uCloudLit, smoothstep(0.35, 0.8, n));
+    col = mix(col, cc, cover * 0.9 * smoothstep(0.0, 0.1, t));
   }
 
   // Éclair lointain
@@ -101,5 +107,87 @@ void main() {
   // Grain léger pour éviter le banding
   col += (hash12(p + fract(uTime)) - 0.5) / 255.0 * 2.0;
   finalColor = vec4(col, 1.0);
+}
+`;
+
+/** Chaînes de montagnes (couche transparente au-dessus des nuages lointains). */
+export const MOUNTAINS_FRAGMENT = /* glsl */ `
+precision highp float;
+in vec2 vPos;
+out vec4 finalColor;
+
+uniform vec2 uScreen;
+uniform float uHorizon;
+uniform float uSkyHeight;
+uniform int uOctaves;
+uniform float uCamX;
+uniform vec3 uMtn;
+uniform vec3 uForest;
+uniform vec3 uHaze;
+uniform float uSnowLine;
+uniform float uSunSide;
+uniform vec3 uSunLit;
+
+${GLSL_NOISE}
+
+// Crête montagneuse : bruit « ridged » (arêtes vives, vallées douces).
+float ridge(float x, float seed, int oct) {
+  float h = 0.0;
+  float a = 0.55;
+  float f = 1.0;
+  for (int i = 0; i < 6; i++) {
+    if (i >= oct) break;
+    float n = vnoise(vec2(x * f + seed * 13.1, seed * 7.3 + float(i) * 3.7));
+    n = 1.0 - abs(n * 2.0 - 1.0);
+    h += n * n * a;
+    f *= 2.07;
+    a *= 0.48;
+  }
+  return h;
+}
+
+// Dessine un plan de montagnes ; renvoie la couverture (0..1) et modifie col.
+void mountainLayer(inout vec4 acc, vec2 p, float depth, float par, float base, float amp, float freq, float seed, vec3 tone, bool forest) {
+  float x = (p.x + uCamX * par) / uScreen.y * freq;
+  float e = 0.01;
+  float r = ridge(x, seed, uOctaves + 1);
+  float hgt = base + amp * r;
+  if (forest) hgt += 0.03 * vnoise(vec2(x * 9.0, seed)) + 0.018 * vnoise(vec2(x * 24.0, seed + 2.0));
+  float top = uHorizon - hgt * uSkyHeight;
+  float cover = smoothstep(top - 0.8, top + 0.8, p.y);
+  if (cover <= 0.0) return;
+  float slope = ridge(x + e, seed, 3) - ridge(x - e, seed, 3);
+  float below = (p.y - top) / uSkyHeight;
+  // Aplat façon estampe : liseré éclairé juste sous la crête, côté soleil
+  float rim = (1.0 - smoothstep(0.0, 0.035 + depth * 0.02, below)) * clamp(slope * 8.0 * uSunSide, 0.0, 1.0);
+  vec3 c = tone;
+  c = mix(c, c * 1.25 + uSunLit * 0.18, rim * 0.8);
+  float lit = rim;
+  // Neiges sommitales (plans lointains)
+  if (!forest) {
+    // Neige : calotte irrégulière qui descend dans les couloirs, jamais en colonnes
+    float n2 = vnoise(vec2(x * 4.0, below * 22.0)) * 0.7 + vnoise(vec2(x * 11.0, below * 50.0)) * 0.3;
+    float cap = 0.05 + n2 * 0.09;
+    float snow = smoothstep(uSnowLine, uSnowLine + 0.02, (uHorizon - p.y) / uSkyHeight + 0.04) * (1.0 - smoothstep(cap * 0.7, cap, below));
+    c = mix(c, mix(vec3(0.92, 0.94, 1.0) * (0.82 + 0.18 * lit), uHaze, depth * 0.45) * (0.55 + 0.45 * min(1.0, length(uSunLit))), snow * 0.9);
+  }
+  // Perspective atmosphérique + brume de vallée vers la base
+  // Perspective atmosphérique + brume qui monte des vallées
+  float above = (uHorizon - p.y) / uSkyHeight;
+  float valley = 1.0 - smoothstep(0.0, base + amp * 0.45, above);
+  c = mix(c, uHaze, clamp(depth * 0.8 + valley * (0.4 + depth * 0.2), 0.0, 0.95));
+  acc = vec4(c * cover, cover) + acc * (1.0 - cover);
+}
+
+
+void main() {
+  vec2 p = vPos;
+  // Dessin du lointain vers le proche, en « over » prémultiplié inversé
+  vec4 acc = vec4(0.0);
+  mountainLayer(acc, p, 0.55, 0.04, 0.12, 0.62, 6.0, 1.0, uMtn, false);
+  mountainLayer(acc, p, 0.38, 0.07, 0.09, 0.42, 8.5, 2.0, uMtn, false);
+  mountainLayer(acc, p, 0.22, 0.11, 0.07, 0.26, 12.0, 3.0, mix(uMtn, uForest, 0.55), false);
+  mountainLayer(acc, p, 0.08, 0.16, 0.06, 0.1, 16.0, 4.0, uForest, true);
+  finalColor = acc;
 }
 `;

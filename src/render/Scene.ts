@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite, type Renderer } from 'pixi.js';
+import { Application, Container, Sprite, type Renderer } from 'pixi.js';
 import { Camera } from '@/engine/camera';
 import { GestureController, type GestureHandlers, type ScreenPoint } from '@/engine/gestures';
 import { Loop } from '@/engine/loop';
@@ -18,7 +18,7 @@ import {
 import type { SeasonState } from '@/world/season';
 import type { Lighting, SkyState } from '@/world/sky';
 import type { WeatherState } from '@/world/weatherTypes';
-import { Canopy, GardenWall, Mountains } from './Backdrop';
+import { Canopy, GardenWall, Mountains, SkyClouds } from './Backdrop';
 import { setQuad, setVec } from './gl';
 import { GroundView } from './GroundView';
 import { DEFAULT_VIEW, MAIN_POND, WORLD } from '@/world/layout';
@@ -27,7 +27,8 @@ import { PondView } from './PondView';
 import { QUALITY, type QualityLevel, type QualityProfile } from './quality';
 import { SkyLayer } from './SkyLayer';
 import { sharedTextures } from './textures';
-import { drawTree, treeLookKey, type TreeLook } from './trees';
+import type { TreeLook } from './trees';
+import { TreeView } from './TreeView';
 
 export interface SceneEnv {
   sky: SkyState;
@@ -54,6 +55,7 @@ export interface FrameLight {
 }
 
 const FAR = 0.22;
+const NO_RAYS = typeof location !== 'undefined' && location.search.includes('norays');
 const MID = 0.55;
 
 export interface SceneSystem {
@@ -62,9 +64,8 @@ export interface SceneSystem {
 }
 
 interface FixedTree {
-  g: Graphics;
+  view: TreeView;
   look: Omit<TreeLook, 'season' | 'snow' | 'thirst'>;
-  key: string;
   phase: number;
 }
 
@@ -91,6 +92,7 @@ export class Scene {
   readonly mountains = new Mountains();
   readonly wall = new GardenWall();
   readonly canopy: Canopy;
+  readonly clouds: SkyClouds;
   readonly ponds: PondView[] = [];
   readonly vignette: Sprite;
   private readonly systems: SceneSystem[] = [];
@@ -116,10 +118,11 @@ export class Scene {
     this.quality = QUALITY[qualityLevel];
     this.stage = app.stage;
     const tex = sharedTextures();
-    this.sky = new SkyLayer(this.skyLayer);
-    this.farLayer.addChild(this.mountains.container);
+    this.clouds = new SkyClouds(tex.clouds);
+    this.sky = new SkyLayer(this.skyLayer, this.clouds.container);
     this.midLayer.addChild(this.wall.container);
-    this.ground = new GroundView(this.groundLayer, tex.noise);
+    this.wall.buildHedge(tex.clumps.leaf, this.objects);
+    this.ground = new GroundView(this.groundLayer, tex.noise, tex.grass);
     this.world.addChild(this.groundLayer, this.pondLayer, this.objects, this.worldFx);
     this.objects.sortableChildren = true;
     this.canopy = new Canopy(tex.maple);
@@ -192,24 +195,24 @@ export class Scene {
 
   private addFixedTrees(): void {
     const specs: FixedTree['look'][] = [
-      { species: 'maple', seed: 12, growth: 1, prune: 0.15, height: 560 },
+      { species: 'maple', seed: 12, growth: 1, prune: 0.15, height: 470 },
       { species: 'pine', seed: 31, growth: 1, prune: 0.6, height: 380 },
       { species: 'bamboo', seed: 8, growth: 1, prune: 0, height: 420 },
       { species: 'cherry', seed: 21, growth: 1, prune: 0.1, height: 380 },
     ];
     const positions = [
-      { x: 205, y: 900 },
-      { x: 985, y: 930 },
-      { x: 1010, y: 640 },
-      { x: 560, y: 700 },
+      { x: 30, y: 980 },
+      { x: 1130, y: 1030 },
+      { x: 1170, y: 690 },
+      { x: 1150, y: 800 },
     ];
     specs.forEach((look, i) => {
-      const g = new Graphics();
+      const view = new TreeView();
       const p = positions[i]!;
-      g.position.set(p.x, p.y);
-      g.zIndex = p.y;
-      this.objects.addChild(g);
-      this.fixedTrees.push({ g, look, key: '', phase: i * 1.7 });
+      view.root.position.set(p.x, p.y);
+      view.root.zIndex = p.y;
+      this.objects.addChild(view.root);
+      this.fixedTrees.push({ view, look, phase: i * 1.7 });
     });
     this.fixedCanopies = specs.map((look, i) => {
       const p = positions[i]!;
@@ -363,10 +366,21 @@ export class Scene {
     u.uMoonSize = Math.max(10, w * 0.035);
     u.uStars = sky.stars * (1 - L.overcast * 0.95);
     u.uTime = t;
+    // Quelques nuages de beau temps même par ciel clair
     u.uClouds = clamp(weather.cloudCover / 100);
     const cloudLit = mixRgb(L.skyHorizon, [1, 1, 1], 0.55 * sky.daylight);
     setVec(u.uCloudLit, mulRgb(cloudLit, mixRgb([1, 1, 1], L.ambient, 0.5)));
     setVec(u.uCloudShade, scaleRgb(mixRgb(L.skyTop, L.ambient, 0.5), 0.72));
+    this.clouds.update(
+      dt,
+      w,
+      horizonY,
+      skyH,
+      clamp(weather.cloudCover / 100),
+      L.wind,
+      mulRgb(cloudLit, mixRgb([1, 1, 1], L.ambient, 0.5)),
+      scaleRgb(mixRgb(L.skyTop, L.ambient, 0.5), 0.72),
+    );
     u.uWind = 0.4 + L.wind * 3;
     setVec(u.uStarShift, [((t * 0.2) % 1000) + sky.sunAzimuth * 3, 0]);
     u.uOctaves = this.quality.skyOctaves;
@@ -380,9 +394,21 @@ export class Scene {
     }
     this.flash = Math.max(0, this.flash - dt * 2.8);
     u.uFlash = this.flash * (0.5 + 0.5 * Math.sin(t * 60)) * 0.5;
+    // Montagnes
+    const m = this.sky.m;
+    setQuad(this.sky.mountains.mesh.geometry, 0, 0, w, Math.min(h, horizonY + 20));
+    m.uHorizon = horizonY;
+    m.uSkyHeight = skyH;
+    m.uOctaves = this.quality.skyOctaves;
+    m.uCamX = (cam.x - DEFAULT_VIEW.x) * cam.zoom;
+    setVec(m.uMtn, mulRgb(hexToRgb('#34465c'), mixRgb(L.ambient, [1, 1, 1], 0.1)));
+    setVec(m.uForest, mulRgb(hexToRgb('#24392f'), L.ambient));
+    setVec(m.uHaze, mixRgb(L.skyHorizon, L.skyTop, 0.12 + L.fog * 0.1));
+    m.uSnowLine = 0.52 - season.winter * 0.3 - weather.snowCover * 0.1;
+    m.uSunSide = clamp(sunS.d / 60, -1, 1) || 0.4;
+    setVec(m.uSunLit, scaleRgb(L.sunColor, L.sunStrength));
 
     // Décor
-    this.mountains.update(L.skyHorizon, L.skyTop, L.ambient, season.winter, L.fog);
     this.wall.updateSeason(season);
     this.midLayer.tint = rgbToHex(mixRgb(L.ambient, L.skyHorizon, 0.15 + L.fog * 0.4));
     this.world.tint = rgbToHex(L.ambient);
@@ -400,6 +426,24 @@ export class Scene {
     g.uWet = weather.wetness;
     g.uTime = t;
     g.uWind = L.wind;
+    // Teinte saisonnière de l'herbe
+    const tSpring: RGB = [1.05, 1.12, 0.9];
+    const tSummer: RGB = [0.95, 1.02, 0.88];
+    const tAutumn: RGB = [1.18, 1.02, 0.7];
+    const tWinter: RGB = [0.92, 0.9, 0.78];
+    let tint =
+      season.season === 'spring'
+        ? tSpring
+        : season.season === 'summer'
+          ? tSummer
+          : season.season === 'autumn'
+            ? tAutumn
+            : tWinter;
+    tint = mixRgb(tint, tAutumn, season.autumn * 0.5);
+    setVec(g.uTint, tint);
+    setVec(g.uHazeCol, mixRgb(L.skyHorizon, L.ambient, 0.35));
+    const wd = ((weather.windDir + 90) * Math.PI) / 180;
+    setVec(g.uWindDir, [Math.cos(wd), Math.sin(wd) * 0.6]);
 
     // Eau
     const sunAz = sunS.d * DEG;
@@ -447,7 +491,8 @@ export class Scene {
     r.uTime = t;
     r.uWind = L.wind;
     r.uHaze = L.fog;
-    this.light.rays.mesh.visible = r.uStrength > 0.01;
+    r.uHorizon = horizonY;
+    this.light.rays.mesh.visible = r.uStrength > 0.01 && !NO_RAYS;
     const f = this.light.fog.u;
     f.uFog = L.fog;
     setVec(f.uFogCol, L.fogColor);
@@ -467,12 +512,8 @@ export class Scene {
         snow: env.weather.snowCover,
         thirst: 0,
       };
-      const key = treeLookKey(look);
-      if (key !== tr.key) {
-        drawTree(tr.g, look);
-        tr.key = key;
-      }
-      tr.g.skew.x = Math.sin(t * (0.6 + L.wind) + tr.phase) * (0.006 + L.wind * 0.03);
+      tr.view.set(look);
+      tr.view.sway(t, L.wind, tr.phase);
     }
   }
 

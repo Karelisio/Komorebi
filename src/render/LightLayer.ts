@@ -14,6 +14,7 @@ export class LightLayer {
       uTime: { type: 'f32', value: 0 },
       uWind: { type: 'f32', value: 0 },
       uHaze: { type: 'f32', value: 0 },
+      uHorizon: { type: 'f32', value: 300 },
     },
   });
 

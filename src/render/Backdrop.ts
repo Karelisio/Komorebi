@@ -58,6 +58,7 @@ export class GardenWall {
   readonly container = new Container();
   private readonly trees = new Graphics();
   private readonly wall = new Graphics();
+  private readonly hedge = new Container();
   private seasonKey = '';
 
   constructor() {
@@ -67,6 +68,9 @@ export class GardenWall {
     const x1 = WORLD.width + 900;
     const w = this.wall;
     w.rect(x0, y - 58, x1 - x0, 70).fill(0xe9e2d2);
+    // Enduit patiné : légère salissure vers le bas
+    for (let k = 0; k < 6; k++)
+      w.rect(x0, y - 20 + k * 4, x1 - x0, 4).fill({ color: 0x8a7f68, alpha: 0.04 + k * 0.025 });
     w.rect(x0, y + 4, x1 - x0, 8).fill(0x8f8676);
     for (let x = x0; x < x1; x += 180) w.rect(x, y - 58, 7, 70).fill(0x6b5646);
     w.rect(x0, y - 58, x1 - x0, 5).fill({ color: 0x000000, alpha: 0.18 });
@@ -78,17 +82,67 @@ export class GardenWall {
     w.rect(x0, y - 82, x1 - x0, 3).fill(0x2a2e33);
   }
 
+  /** Haie taillée en coussins (karikomi) au pied du mur, à partir des amas peints. */
+  buildHedge(clump: Texture[], parent: Container): void {
+    if (this.hedge.children.length) return;
+    const rng = mulberry32(7);
+    const y = WORLD.horizon + 34;
+    parent.addChild(this.hedge);
+    this.hedge.zIndex = y;
+    for (let x = -60; x < WORLD.width + 60; x += 34 + rng() * 30) {
+      const r = 26 + rng() * 22;
+      const back = new Sprite(clump[Math.floor(rng() * clump.length)]!);
+      back.anchor.set(0.5, 0.8);
+      back.width = r * 2.6;
+      back.height = r * 1.5;
+      back.position.set(x + 4, y + 4);
+      back.tint = 0x2f4a2c;
+      const front = new Sprite(clump[Math.floor(rng() * clump.length)]!);
+      front.anchor.set(0.5, 0.8);
+      front.width = r * 2.3;
+      front.height = r * 1.3;
+      front.position.set(x, y);
+      front.tint = rng() < 0.5 ? 0x7fa45a : 0x6b9450;
+      this.hedge.addChild(back, front);
+    }
+  }
+
+  setHedgeTint(season: SeasonState): void {
+    // Les azalées fleurissent en mai : quelques coussins roses
+    const bloom = season.blossom > 0.6 && season.season === 'spring';
+    this.hedge.children.forEach((c, i) => {
+      if (i % 2 === 1 && c instanceof Sprite)
+        c.tint = bloom && i % 6 === 1 ? 0xe89ab8 : i % 4 === 1 ? 0x7fa45a : 0x6b9450;
+    });
+  }
+
   updateSeason(season: SeasonState): void {
     const key = `${season.season}:${Math.round(season.autumn * 5)}:${Math.round(season.foliage * 5)}:${Math.round(season.sakura * 5)}`;
     if (key === this.seasonKey) return;
     this.seasonKey = key;
+    this.setHedgeTint(season);
     const g = this.trees;
     g.clear();
     const rng = mulberry32(99);
     const y = WORLD.horizon - 60;
+    // La forêt lointaine est désormais peinte par le shader du ciel : seules quelques
+    // cimes dépassent du mur.
+    if (rng() >= 0) {
+      for (let x = -900; x < WORLD.width + 900; x += 90 + rng() * 140) {
+        const h = 26 + rng() * 40;
+        const shade = rgbToHex(mixRgb(hexToRgb('#23392c'), hexToRgb('#2f4a36'), rng()));
+        g.poly([x - 16, y + 8, x, y - h, x + 16, y + 8]).fill(shade);
+        g.poly([x - 11, y - h * 0.35, x, y - h - 10, x + 8, y - h * 0.35]).fill(
+          rgbToHex(mixRgb(hexToRgb('#2f4a36'), hexToRgb('#4d6b4f'), rng())),
+        );
+      }
+      return;
+    }
     const green = hexToRgb('#2f4a34');
     const autumnCols = ['#9c3a2a', '#c0612e', '#b98a34'].map(hexToRgb);
     for (let x = -900; x < WORLD.width + 900; x += 38) {
+      // Haie basse clairsemée : on laisse voir le paysage emprunté (shakkei)
+      if (rng() < 0.55) continue;
       const conifer = rng() < 0.4;
       const deciduousAmount = season.foliage;
       let col = green;
@@ -100,7 +154,7 @@ export class GardenWall {
         if (deciduousAmount < 0.2) col = mixRgb(hexToRgb('#5a4d48'), hexToRgb('#6a6058'), rng());
       }
       col = mixRgb(col, [0.2, 0.26, 0.3], 0.25);
-      const hgt = 90 + rng() * 110;
+      const hgt = 30 + rng() * 55;
       const r = conifer ? 26 + rng() * 10 : 34 + rng() * 22;
       const c = rgbToHex(col);
       const shade = rgbToHex(mixRgb(col, [0, 0, 0], 0.25));
@@ -197,11 +251,11 @@ export class Canopy {
       }
       tips.push({ x: px, y: py });
     };
-    limb(-20, 30, 0.1, width * 0.5, 7, 2);
+    limb(-20, 26, 0.12, width * 0.42, 6, 2);
     const green = hexToRgb('#3d6a34');
     const spring = hexToRgb('#86b653');
     const autumn = ['#c23a24', '#e0602c', '#f0a040', '#a82a30'].map(hexToRgb);
-    const count = Math.round(90 * Math.max(0.06, season.foliage));
+    const count = Math.round(70 * Math.max(0.06, season.foliage));
     for (let i = 0; i < count; i++) {
       const anchor = tips[Math.floor(rng() * tips.length)]!;
       const s = new Sprite(this.leafTex);
@@ -236,5 +290,61 @@ export class Canopy {
       l.sprite.rotation = l.baseRot + Math.sin(time * (1.1 + wind) + l.phase) * sway;
     }
     this.container.rotation = Math.sin(time * 0.35) * 0.006 * (1 + wind * 3);
+  }
+}
+
+interface Cloud {
+  sprite: Sprite;
+  x: number;
+  h: number;
+  speed: number;
+  rank: number;
+}
+
+/** Cumulus peints qui dérivent au-dessus des montagnes (espace écran). */
+export class SkyClouds {
+  readonly container = new Container();
+  private readonly clouds: Cloud[] = [];
+
+  constructor(textures: Texture[]) {
+    const rng = mulberry32(12);
+    for (let i = 0; i < 9; i++) {
+      const s = new Sprite(textures[i % textures.length]!);
+      s.anchor.set(0.5, 0.78);
+      this.container.addChild(s);
+      const h = 0.28 + rng() * 0.55;
+      this.clouds.push({
+        sprite: s,
+        x: rng() * 1.4 - 0.2,
+        h,
+        speed: 0.004 + rng() * 0.006,
+        rank: rng(),
+      });
+    }
+  }
+
+  update(
+    dt: number,
+    w: number,
+    horizonY: number,
+    skyH: number,
+    cover: number,
+    wind: number,
+    lit: RGB,
+    shade: RGB,
+  ): void {
+    const visible = 0.18 + cover * 0.82;
+    for (const c of this.clouds) {
+      c.x += c.speed * (0.4 + wind * 2.5) * dt;
+      if (c.x > 1.35) c.x = -0.35;
+      const s = c.sprite;
+      // Plus hauts = plus proches = plus grands
+      const scale = (w / 393) * (0.16 + c.h * 0.42);
+      s.scale.set(scale);
+      s.position.set(c.x * w, horizonY - c.h * skyH);
+      s.alpha = c.rank < visible ? Math.min(1, (visible - c.rank) * 4) * 0.95 : 0;
+      s.visible = s.alpha > 0.01;
+      s.tint = rgbToHex(mixRgb(shade, lit, 0.75));
+    }
   }
 }

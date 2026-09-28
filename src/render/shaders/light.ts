@@ -13,6 +13,7 @@ uniform float uStrength;
 uniform float uTime;
 uniform float uWind;
 uniform float uHaze;
+uniform float uHorizon;
 
 ${GLSL_NOISE}
 
@@ -23,15 +24,15 @@ void main() {
   float t = uTime;
   float sway = sin(t * 0.4) * 0.004 * (1.0 + uWind * 2.0);
   float a = ang + sway;
-  float b1 = pow(max(0.0, sin(a * 29.0 + sin(a * 9.0 + t * 0.05) * 2.2)), 10.0);
-  float b2 = pow(max(0.0, sin(a * 17.0 + 4.1 + t * 0.02 + sin(a * 5.0) * 2.0)), 16.0) * 0.8;
-  float beams = (b1 + b2) * smoothstep(0.25, 0.75, vnoise(vec2(a * 6.0, 3.0)));
-  // Scintillement : les feuilles bougent et masquent les faisceaux
-  beams *= 0.35 + 0.65 * vnoise(vec2(a * 30.0, t * (0.25 + uWind * 0.6)));
-  float fade = smoothstep(uScreen.y * 0.15, uScreen.y * 0.55, dist) * (1.0 - smoothstep(uScreen.y * 0.8, uScreen.y * 1.9, dist));
-  // Poussière en suspension dans la lumière
+  // Quelques faisceaux larges et doux, dont l'intensité varie comme le feuillage qui bouge
+  float b1 = pow(max(0.0, sin(a * 9.0 + sin(a * 3.0 + t * 0.04) * 1.5)), 3.0);
+  float b2 = pow(max(0.0, sin(a * 14.0 + 2.1 - t * 0.03)), 4.0) * 0.6;
+  float beams = (b1 + b2) * smoothstep(0.3, 0.8, vnoise(vec2(a * 4.0, t * 0.08)));
+  float fade = smoothstep(uScreen.y * 0.1, uScreen.y * 0.5, dist) * (1.0 - smoothstep(uScreen.y * 0.7, uScreen.y * 1.6, dist));
+  // Pas de faisceaux dans le ciel : on les voit dans l'air du jardin
+  fade *= smoothstep(uHorizon - 40.0, uHorizon + 160.0, vPos.y);
   float dust = pow(vnoise(vPos * 0.11 + vec2(t * 0.35, -t * 0.25)), 24.0) * 2.0;
-  vec3 col = uSunCol * beams * (0.11 + uHaze * 0.14 + dust * 0.3) * fade * uStrength;
+  vec3 col = uSunCol * beams * (0.07 + uHaze * 0.1 + dust * 0.3) * fade * uStrength;
   finalColor = vec4(col, 0.0);
 }
 `;

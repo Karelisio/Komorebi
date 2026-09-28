@@ -1,4 +1,5 @@
 import { GardenSystem } from '@/render/GardenSystem';
+import { GrassSystem } from '@/render/GrassSystem';
 import { KoiSystem } from '@/render/KoiSystem';
 import { LilySystem } from '@/render/LilySystem';
 import { Scene } from '@/render/Scene';
@@ -37,6 +38,7 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
   const garden = new GardenSystem(scene);
   const weather = new WeatherSystem(scene);
   weather.onEvent = (e) => hooks.onNature?.(e);
+  scene.addSystem(new GrassSystem(scene));
   scene.addSystem(garden);
   scene.addSystem(kois);
   const lilies = new LilySystem(scene.ponds);
