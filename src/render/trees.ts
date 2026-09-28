@@ -36,7 +36,7 @@ const mixP = (a: Palette, b: Palette, t: number): Palette => ({
 const MAPLE_SPRING: Palette = { dark: C('#4f7a38'), mid: C('#7aa54e'), light: C('#a8cc72') };
 const MAPLE_SUMMER: Palette = { dark: C('#2f5a2c'), mid: C('#4f7f3a'), light: C('#7fa95a') };
 const MAPLE_AUTUMN: Palette = { dark: C('#8e2a22'), mid: C('#d44a2c'), light: C('#f28a45') };
-const CHERRY_BLOOM: Palette = { dark: C('#cf8fa3'), mid: C('#f0b8c8'), light: C('#fbe3ea') };
+const CHERRY_BLOOM: Palette = { dark: C('#d4829e'), mid: C('#f5aec4'), light: C('#ffd6e3') };
 const CHERRY_AUTUMN: Palette = { dark: C('#9a5a2c'), mid: C('#d08a3c'), light: C('#eec06a') };
 const PINE: Palette = { dark: C('#23402f'), mid: C('#35593f'), light: C('#62875c') };
 const BAMBOO: Palette = { dark: C('#4c7a3a'), mid: C('#6f9c4c'), light: C('#a3c874') };
@@ -108,6 +108,29 @@ function taper(
     y1 - ny * w1,
   ]).fill(color);
   g.circle(x2, y2, w2).fill(color);
+  // Modelé de l'écorce : bande éclairée côté gauche (lumière haut-gauche)
+  if (w1 > 2.2) {
+    const side = nx < 0 ? 1 : -1;
+    const lx = nx * side;
+    const ly = ny * side;
+    const light = rgbToHex(
+      mixRgb(
+        [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255],
+        [1, 0.95, 0.85],
+        0.22,
+      ),
+    );
+    g.poly([
+      x1 - lx * w1 * 0.85,
+      y1 - ly * w1 * 0.85,
+      x2 - lx * w2 * 0.85,
+      y2 - ly * w2 * 0.85,
+      x2 - lx * w2 * 0.2,
+      y2 - ly * w2 * 0.2,
+      x1 - lx * w1 * 0.2,
+      y1 - ly * w1 * 0.2,
+    ]).fill({ color: light, alpha: 0.8 });
+  }
 }
 
 export type ClumpKind = 'leaf' | 'maple' | 'blossom' | 'needle';
@@ -143,7 +166,8 @@ function crownClumps(
   const top = Math.min(...ys);
   const bottom = Math.max(...ys);
   const range = Math.max(1, bottom - top);
-  const sorted = [...tips].sort((a, b) => a.y - b.y);
+  // Quelques trouées : le ciel et les branches se devinent à travers la couronne
+  const sorted = [...tips].filter(() => rng() > 0.12).sort((a, b) => a.y - b.y);
   // Masse d'ombre (arrière)
   for (const t of sorted)
     out.push({
@@ -158,8 +182,8 @@ function crownClumps(
   // Masse principale : plus claire en haut de la couronne
   for (const t of sorted) {
     const k = 1 - (t.y - top) / range;
-    const c = mixRgb(p.mid, p.light, 0.25 + k * 0.55 + (rng() - 0.5) * 0.2);
-    out.push({ x: t.x, y: t.y, r: t.r, ry, tint: rgbToHex(c), kind, alpha: 1 });
+    const c = mixRgb(p.mid, p.light, 0.15 + k * 0.6 + (rng() - 0.5) * 0.25);
+    out.push({ x: t.x, y: t.y, r: t.r * 0.95, ry, tint: rgbToHex(c), kind, alpha: 1 });
   }
   // Touches de lumière, côté soleil (haut-gauche)
   for (const t of sorted) {
@@ -195,7 +219,7 @@ function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng, out: Clump[]): voi
   const bark = rgbToHex(mixRgb(BARK, BARK_LIGHT, look.species === 'cherry' ? 0.5 : 0.1));
   const tips: Tip[] = [];
   // Couronne large et aérée (érable du Japon), plus ronde pour le cerisier
-  const spread = (look.species === 'maple' ? 0.78 : 0.62) + look.prune * 0.2;
+  const spread = (look.species === 'maple' ? 0.5 : 0.44) + look.prune * 0.15;
 
   const branch = (x: number, y: number, angle: number, len: number, w: number, d: number): void => {
     const bend = (rng() - 0.5) * 0.25;
@@ -203,38 +227,72 @@ function drawBroadleaf(g: Graphics, look: TreeLook, rng: Rng, out: Clump[]): voi
     const y2 = y - Math.cos(angle + bend) * len;
     taper(g, x, y, w, x2, y2, w * 0.66, bark);
     if (d <= 0) {
-      tips.push({ x: x2, y: y2, r: size * (0.075 + rng() * 0.04) * (1 + look.prune * 0.5) });
+      const r = size * (0.08 + rng() * 0.04) * (1 + look.prune * 0.5);
+      tips.push({ x: x2, y: y2, r });
+      // Un second amas au milieu du rameau : aucune branche nue ne dépasse
+      tips.push({ x: (x + x2) / 2, y: (y + y2) / 2, r: r * 0.85 });
       return;
     }
     const n = 2 + (rng() < 0.4 - look.prune * 0.3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const t = n === 1 ? 0 : i / (n - 1) - 0.5;
       // Les branches s'étalent : l'angle s'ouvre vers l'horizontale en montant
-      const a = angle * 0.9 + t * spread * 2 + (rng() - 0.5) * 0.35;
+      const a = angle * 0.7 + t * spread * 2 + (rng() - 0.5) * 0.3;
       branch(x2, y2, a, len * (0.66 + rng() * 0.14), w * 0.66, d - 1);
     }
     if (d <= 2 && rng() < 0.45) tips.push({ x: x2, y: y2, r: size * 0.065 * (0.8 + rng() * 0.4) });
   };
 
-  const trunkLen = size * (0.38 - look.prune * 0.08);
+  const trunkLen = size * (0.34 - look.prune * 0.08);
   const lean = (rng() - 0.5) * 0.25;
   branch(0, 0, lean, trunkLen, size * 0.05, depth);
   // Racines apparentes
   g.ellipse(0, 0, size * 0.08, size * 0.02).fill(bark);
 
-  if (amount > 0.02) {
-    // On retire des amas à mesure que les feuilles tombent.
-    const kept = tips.filter(() => rng() < 0.15 + amount * 0.85);
-    const shrink = 0.55 + 0.45 * amount;
+  if (amount > 0.02 && tips.length) {
+    // Couronne : ellipsoïde posé sur la ramure, rempli d'amas (en étages pour l'érable)
+    const xs = tips.map((t) => t.x);
+    const ys = tips.map((t) => t.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const cx = (minX + maxX) / 2;
+    const rx = Math.max((maxX - minX) / 2 + size * 0.08, size * 0.26);
+    const ry = Math.max(
+      (maxY - minY) / 2 + size * 0.1,
+      rx * (look.species === 'maple' ? 0.62 : 0.72),
+    );
+    const cy = Math.min((minY + maxY) / 2, maxY - ry * 0.35);
+    const maple = look.species === 'maple';
+    const count = Math.round((12 + 24 * look.growth) * (0.35 + 0.65 * amount));
+    const crown: Tip[] = [];
+    for (let i = 0; i < count; i++) {
+      const a = rng() * Math.PI * 2;
+      const rr = 0.3 + 0.7 * Math.sqrt(rng());
+      let x = cx + Math.cos(a) * rx * rr * 0.88;
+      let y = cy + Math.sin(a) * ry * rr * 0.82;
+      if (maple) {
+        // Trois étages horizontaux séparés par de fines trouées
+        const tier = Math.max(0, Math.min(2, Math.floor(((y - (cy - ry)) / (2 * ry)) * 3)));
+        y = cy - ry + (tier + 0.5) * ((2 * ry) / 3) + (rng() - 0.5) * ry * 0.22;
+        x = cx + (x - cx) * (1 - tier * 0.12 + 0.12);
+      }
+      crown.push({
+        x,
+        y,
+        r: Math.min(rx, ry) * (0.3 + rng() * 0.16) * (0.6 + 0.4 * amount) * (1 + look.prune * 0.3),
+      });
+    }
     const blossom = look.species === 'cherry' && look.season.sakura > 0.35;
     crownClumps(
       out,
-      kept.map((t) => ({ ...t, r: t.r * shrink * 1.15 })),
+      crown,
       dull(palette, look.thirst),
       rng,
-      look.prune,
+      maple ? Math.max(look.prune, 0.45) : look.prune,
       look.snow,
-      blossom ? 'blossom' : look.species === 'maple' ? 'maple' : 'leaf',
+      blossom ? 'blossom' : maple ? 'maple' : 'leaf',
     );
   } else if (look.snow > 0.05) {
     for (const t of tips)

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { detectLang, type Lang } from '@/i18n';
+import type { Lang } from '@/i18n';
 import { defaultQuality, type QualityLevel } from '@/render/quality';
 
 export type ThemeMode = 'natural' | 'material' | 'light' | 'dark';
@@ -23,7 +23,8 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  lang: detectLang(),
+  // Français par défaut (l'anglais se choisit dans les réglages)
+  lang: 'fr',
   quality: defaultQuality(),
   fpsCap: 30,
   volumes: { ambient: 0.8, music: 0.5, sfx: 0.7 },

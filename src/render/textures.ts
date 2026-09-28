@@ -317,10 +317,11 @@ export function makeClumpTexture(
   }));
   const inside = (x: number, y: number) => blobs.some((b) => Math.hypot(x - b.x, y - b.y) < b.r);
   // Fond sombre pour éviter les trous
+  const bg = kind === 'blossom' ? 200 : 95;
   for (const b of blobs) {
     const g = ctx.createRadialGradient(b.x, b.y, b.r * 0.2, b.x, b.y, b.r);
-    g.addColorStop(0, 'rgba(95,95,95,0.95)');
-    g.addColorStop(0.85, 'rgba(80,80,80,0.8)');
+    g.addColorStop(0, `rgba(${bg},${bg},${bg},0.95)`);
+    g.addColorStop(0.85, `rgba(${bg - 15},${bg - 15},${bg - 15},0.8)`);
     g.addColorStop(1, 'rgba(70,70,70,0)');
     ctx.fillStyle = g;
     ctx.beginPath();

@@ -208,10 +208,10 @@ export class Scene {
       { species: 'cherry', seed: 21, growth: 1, prune: 0.1, height: 380 },
     ];
     const positions = [
-      { x: 30, y: 980 },
-      { x: 1130, y: 1030 },
+      { x: 115, y: 960 },
+      { x: 1125, y: 1090 },
       { x: 1170, y: 690 },
-      { x: 1150, y: 800 },
+      { x: 1065, y: 790 },
     ];
     specs.forEach((look, i) => {
       const view = new TreeView();
