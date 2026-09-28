@@ -77,7 +77,7 @@ jobs:
       - name: Version depuis le tag
         run: node scripts/version-from-tag.mjs
         env:
-          GITHUB_REF_NAME: ${{ steps.tag.outputs.tag }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
 
       - name: Build web
         run: npm run build

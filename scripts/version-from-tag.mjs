@@ -3,6 +3,7 @@
  * Dérive VERSION_NAME et VERSION_CODE à partir d'un tag git (format vX.Y.Z[-pre]).
  *
  * Source du tag, dans l'ordre :
+ *   0. la variable d'environnement RELEASE_TAG (lancement manuel du workflow) ;
  *   1. la variable d'environnement GITHUB_REF_NAME (fournie par GitHub Actions
  *      sur un déclenchement `push: tags: v*.*.*`) ;
  *   2. à défaut, `git describe --tags --abbrev=0` sur le dépôt courant.
@@ -32,7 +33,7 @@ function tagFromGitDescribe() {
 }
 
 export function resolveTag(env = process.env) {
-  const fromEnv = env.GITHUB_REF_NAME?.trim();
+  const fromEnv = env.RELEASE_TAG?.trim() || env.GITHUB_REF_NAME?.trim();
   if (fromEnv) return fromEnv;
   const fromGit = tagFromGitDescribe();
   if (fromGit) return fromGit;
