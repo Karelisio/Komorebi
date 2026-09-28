@@ -138,6 +138,7 @@ interface GameActions {
   onKoiAte(koiId: string): void;
   renameKoi(id: string, name: string): void;
   toggleFavorite(id: string): void;
+  moveKoi(id: string, pondId: string): void;
   addPetals(n: number): void;
   /** Pose un objet (graine ou achat en pétales). Renvoie l'objet créé ou null. */
   placeObject(kind: CatalogId, x: number, y: number, now: number): GardenObject | null;
@@ -197,6 +198,8 @@ export const useGame = create<GameStore>((set, get) => ({
     })),
   toggleFavorite: (id) =>
     set((s) => ({ kois: s.kois.map((k) => (k.id === id ? { ...k, favorite: !k.favorite } : k)) })),
+  moveKoi: (id, pondId) =>
+    set((s) => ({ kois: s.kois.map((k) => (k.id === id ? { ...k, pondId } : k)) })),
   addPetals: (n) =>
     set((s) => ({ petals: s.petals + n, petalsEarned: s.petalsEarned + Math.max(0, n) })),
   canAfford: (kind) => {

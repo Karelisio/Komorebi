@@ -155,7 +155,14 @@ export class KoiSystem implements SceneSystem {
     for (const k of kois) {
       const rt = this.ponds.get(k.pondId);
       if (!rt) continue;
-      const existing = this.views.get(k.id);
+      let existing = this.views.get(k.id);
+      if (existing && existing.record.pondId !== k.pondId) {
+        // Changement de bassin : on recrée la vue dans l'autre bassin
+        existing.rope.destroy();
+        existing.shadow.destroy();
+        this.views.delete(k.id);
+        existing = undefined;
+      }
       if (existing) {
         existing.record = k;
         existing.agent.size = koiSize(k, now);

@@ -6,6 +6,7 @@ import { express } from '@/pond/genetics';
 import { ageDays, isAdult } from '@/pond/koi';
 import { drawKoiCanvas } from '@/render/koiTexture';
 import { useGame } from '@/state/game';
+import { MAIN_POND, SECOND_POND } from '@/world/layout';
 import { useUi } from '@/state/ui';
 import { Bar, BottomSheet, CanvasView, Stars } from '../components';
 import { Icon } from '../icons';
@@ -15,6 +16,7 @@ const TRAITS = ['doitsu', 'metallic', 'ginrin', 'butterfly', 'tancho'] as const;
 export function KoiSheet() {
   const id = useUi((s) => s.selectedKoi);
   const koi = useGame((s) => s.kois.find((k) => k.id === id));
+  const zones = useGame((st) => st.zones);
   const kois = useGame((s) => s.kois);
   const [name, setName] = useState(koi?.name ?? '');
 
@@ -112,6 +114,20 @@ export function KoiSheet() {
           <Icon.heart style={{ width: 14, height: 14, marginRight: 4 }} />
           {t('koi.favorite')}
         </button>
+        {zones.includes('second-pond') && (
+          <button
+            className="pill ghost"
+            onClick={() => {
+              const target = koi.pondId === MAIN_POND.id ? SECOND_POND.id : MAIN_POND.id;
+              useGame.getState().moveKoi(koi.id, target);
+              tick('light');
+            }}
+          >
+            {t('koi.moveTo', {
+              pond: t(koi.pondId === MAIN_POND.id ? 'zone.second-pond' : 'koi.pond'),
+            })}
+          </button>
+        )}
       </div>
     </BottomSheet>
   );
