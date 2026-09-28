@@ -10,7 +10,6 @@ import {
 import { RippleField } from '@/pond/ripples';
 import { createShaderMesh, vec3, vec4 } from './gl';
 import { pointInPolygon, type PondShape } from '@/world/layout';
-import { drawPondRim } from './PondRim';
 import { WATER_FRAGMENT } from './shaders/water';
 
 export interface PondQuality {
@@ -130,8 +129,8 @@ export class PondView {
         uMoonDir: { type: 'vec3<f32>', value: vec3(0, -0.5, 0.8) },
         uMoonStrength: { type: 'f32', value: 0 },
         uTreeCol: { type: 'vec3<f32>', value: vec3(0.1, 0.18, 0.12) },
-        uDeep: { type: 'vec3<f32>', value: vec3(0.04, 0.12, 0.13) },
-        uShallow: { type: 'vec3<f32>', value: vec3(0.2, 0.36, 0.31) },
+        uDeep: { type: 'vec3<f32>', value: vec3(0.06, 0.2, 0.21) },
+        uShallow: { type: 'vec3<f32>', value: vec3(0.34, 0.52, 0.42) },
         uTime: { type: 'f32', value: 0 },
         uCaustics: { type: 'f32', value: 0 },
         uWind: { type: 'f32', value: 0 },
@@ -143,7 +142,7 @@ export class PondView {
         uGlint: { type: 'vec3<f32>', value: vec3() },
       },
     });
-    this.container.addChild(this.water.mesh, drawPondRim(shape, shape.cx | 0), this.surface);
+    this.container.addChild(this.water.mesh, this.surface);
   }
 
   contains(x: number, y: number): boolean {

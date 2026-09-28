@@ -48,12 +48,12 @@ void main() {
                    vnoise(wp * 1.3 + vec2(7.0, uTime * 0.28)) + vnoise(wp2 * 1.2 - vec2(uTime * 0.42, 1.7)) * 0.6) / 1.6 - 0.5;
   vec3 n = normalize(vec3(slope * 1.8 + wind * (0.08 + uWind * 0.35), 1.0));
 
-  // Fond et absorption : le fond n'est visible que près des berges
+  // Fond et absorption : vue de dessus, l'eau claire laisse voir le fond, voilé au centre
   vec2 ruv = vUV + n.xy * 0.02;
   vec3 bed = texture(uBed, ruv).rgb;
-  vec3 body = mix(uShallow, uDeep, smoothstep(0.0, 0.85, depth));
-  float bedVis = pow(1.0 - depth, 1.6) * 0.75;
-  vec3 col = mix(body, bed * uShallow * 2.2, bedVis);
+  vec3 body = mix(uShallow, uDeep, smoothstep(0.05, 0.95, depth));
+  float bedVis = mix(0.9, 0.3, smoothstep(0.0, 0.9, depth));
+  vec3 col = mix(body, bed * mix(vec3(1.0), uShallow * 2.4, 0.45), bedVis);
 
   // Caustiques (réseau de Worley animé)
   if (uCaustics > 0.01) {
@@ -72,7 +72,7 @@ void main() {
   vec4 koi = texture(uKoi, vUV + n.xy * 0.012);
   if (koi.a > 0.001) {
     vec3 kc = koi.rgb / koi.a;
-    col = mix(col, kc * mix(vec3(1.0), uShallow * 1.8, 0.15), koi.a * 0.94);
+    col = mix(col, kc * mix(vec3(1.0), uShallow * 1.8, 0.1), koi.a * 0.97);
   }
 
   // Ombre portée de la berge
@@ -87,8 +87,8 @@ void main() {
   float edgeNoise = vnoise(vec2(vUV.x * 7.0, 1.0)) * 0.6 + vnoise(vec2(vUV.x * 23.0, 4.0)) * 0.4;
   float trees = smoothstep(0.2 + edgeNoise * 0.22, 0.05 + edgeNoise * 0.18, vUV.y + n.y * 0.25);
   refl = mix(refl, uTreeCol, trees * mix(0.85, 0.35, uReflStrength));
-  float fres = 0.1 + 0.5 * pow(1.0 - vUV.y, 2.0) + 0.9 * length(slope);
-  col = mix(col, refl, clamp(fres, 0.0, 0.75));
+  float fres = 0.05 + 0.2 * pow(1.0 - vUV.y, 3.0) + 0.8 * length(slope);
+  col = mix(col, refl, clamp(fres, 0.0, 0.5));
 
   // Reflets des arbres, lanternes et rochers de la berge, déformés par les ondes
   if (uReflStrength > 0.0) {

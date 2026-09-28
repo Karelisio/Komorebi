@@ -1,6 +1,5 @@
 import { Sprite } from 'pixi.js';
-import { inSand } from '@/garden/placement';
-import { MAIN_POND, pointInPolygon, SECOND_POND, WORLD } from '@/world/layout';
+import { MAIN_POND, pointInPolygon, pondDepthAt, WORLD } from '@/world/layout';
 import { clamp, hexToRgb, mixRgb, rgbToHex, type RGB } from '@/world/math';
 import { mulberry32 } from '@/world/random';
 import type { FrameLight, Scene, SceneEnv, SceneSystem } from './Scene';
@@ -28,18 +27,17 @@ export class GrassSystem implements SceneSystem {
     const tex = sharedTextures();
     const n = Math.round(260 * scene.quality.particles + 60);
     for (let i = 0; i < n; i++) {
-      const x = 20 + rng() * (WORLD.width - 40);
-      const y = WORLD.horizon + 40 + Math.pow(rng(), 0.8) * (WORLD.height - WORLD.horizon - 60);
-      const near = (s: typeof MAIN_POND) => pointInPolygon({ x, y }, s.points);
-      if (near(MAIN_POND) || near(SECOND_POND) || inSand(x, y)) continue;
+      const x = 10 + rng() * (WORLD.width - 20);
+      const y = 40 + rng() * (WORLD.height - 60);
+      // Sur la berge seulement (pas dans l'eau ni sur la margelle)
+      if (pondDepthAt(MAIN_POND, { x, y }) < 1.12 || pointInPolygon({ x, y }, MAIN_POND.points))
+        continue;
       const flower = rng() < 0.22;
       const s = new Sprite(
         flower ? tex.wildflower : tex.tufts[Math.floor(rng() * tex.tufts.length)]!,
       );
       s.anchor.set(0.5, flower ? 0.5 : 1);
-      // Plus petit au loin (perspective)
-      const persp = 0.55 + 0.6 * clamp((y - WORLD.horizon) / 1500);
-      s.scale.set((flower ? 0.45 + rng() * 0.25 : 0.7 + rng() * 0.6) * persp);
+      s.scale.set(flower ? 0.5 + rng() * 0.3 : 0.8 + rng() * 0.6);
       s.position.set(x, y);
       s.zIndex = y - 1;
       scene.objects.addChild(s);

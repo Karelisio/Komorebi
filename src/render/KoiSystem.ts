@@ -27,7 +27,7 @@ function makeRope(texture: MeshRope['texture'], points: Point[], width: () => nu
   return rope;
 }
 /** Longueur d'un koï adulte (unités monde). */
-const ADULT_LENGTH = 96;
+const ADULT_LENGTH = 124;
 
 interface KoiView {
   record: KoiRecord;

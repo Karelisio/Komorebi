@@ -60,7 +60,7 @@ void main() {
 
   // Allée de gravier ratissé, bordée de mousse
   float pd = 1e5;
-  if (p.x < 700.0) {
+  if (uPath[0].x > -9000.0 && p.x < 700.0) {
     for (int i = 0; i < 23; i++) pd = min(pd, segDist(p, uPath[i], uPath[i + 1]));
   }
   float halfW = mix(18.0, 34.0, depth) + (nB.b - 0.5) * 6.0;

@@ -1,6 +1,5 @@
 import { Container, Sprite } from 'pixi.js';
 import type { NatureActivity } from '@/world/events';
-import { WORLD } from '@/world/layout';
 import { Particles, type Particle } from './particles';
 import type { PondView } from './PondView';
 import type { FrameLight, Scene, SceneEnv, SceneSystem } from './Scene';
@@ -264,13 +263,15 @@ export class WeatherSystem implements SceneSystem {
       this.acc.bird = 0;
       const n = 2 + Math.floor(Math.random() * 4);
       const dir = Math.random() < 0.5 ? 1 : -1;
-      const y = WORLD.horizon - 200 - Math.random() * 180;
+      // Vue de dessus : on ne voit que l'ombre des oiseaux qui passent
+      const y = this.scene.height * (0.2 + Math.random() * 0.6);
       for (let i = 0; i < n; i++) {
         const c = new Container();
         const s = new Sprite(sharedTextures().dot);
         s.anchor.set(0.5);
-        s.scale.set(0.35, 0.12);
-        s.tint = 0x2b3a3a;
+        s.scale.set(0.9, 0.3);
+        s.tint = 0x1c2622;
+        s.alpha = 0.16;
         c.addChild(s);
         this.birdLayer.addChild(c);
         this.birds.push({
@@ -283,12 +284,11 @@ export class WeatherSystem implements SceneSystem {
       }
       if (!this.seen.has('birds')) this.emitEvent('birds');
     }
-    // Les oiseaux vivent dans le ciel : coordonnées écran approximatives via la couche lointaine
     for (let i = this.birds.length - 1; i >= 0; i--) {
       const b = this.birds[i]!;
       b.x += b.vx * dt;
       b.flap += dt * 10;
-      b.sprite.position.set(b.x, this.scene.skyToScreenY(b.y) + Math.sin(b.flap * 0.3) * 3);
+      b.sprite.position.set(b.x, b.y + Math.sin(b.flap * 0.3) * 3);
       b.sprite.scale.y = 0.6 + Math.abs(Math.sin(b.flap)) * 0.8;
       if (b.x < -120 || b.x > w + 120) {
         b.sprite.destroy({ children: true });
@@ -302,9 +302,9 @@ export class WeatherSystem implements SceneSystem {
     this.acc.meteor += nature.meteors * 0.25 * dt;
     if (this.acc.meteor >= 1) {
       this.acc.meteor = 0;
-      const horizon = this.scene.skyToScreenY(WORLD.horizon);
+      // Reflet d'une étoile filante sur l'eau
       const x = Math.random() * w;
-      const y = Math.random() * Math.max(40, horizon * 0.6);
+      const y = this.scene.height * (0.25 + Math.random() * 0.4);
       const ang = 0.5 + Math.random() * 0.5;
       const speed = 500 + Math.random() * 300;
       this.sky
@@ -315,7 +315,7 @@ export class WeatherSystem implements SceneSystem {
           vx: Math.cos(ang) * speed * (Math.random() < 0.5 ? -1 : 1),
           vy: Math.sin(ang) * speed,
           life: 0.7,
-          alpha: 0.95,
+          alpha: 0.55,
           scale: 1.4,
           rot: 0,
           blend: 'add',

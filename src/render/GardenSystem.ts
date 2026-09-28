@@ -115,15 +115,6 @@ export class GardenSystem implements SceneSystem {
     const now = clock.now();
     const moving = useUi.getState().movingObject;
     this.lights = [];
-    // Ombres portées des arbres plantés (les plus grands d'abord)
-    const canopies = objects
-      .filter((o) => CATALOG[o.kind].category === 'tree' && o.growth > 0.3)
-      .sort((a, b) => b.growth - a.growth)
-      .map((o) => {
-        const h = CATALOG[o.kind].height * (0.22 + 0.78 * o.growth);
-        return [o.x + 10, o.y + 6, h * 0.45, h * 0.2] as const;
-      });
-    this.scene.ground.setCanopies([...this.scene.fixedCanopies, ...canopies]);
     for (const o of objects) {
       let v = this.views.get(o.id);
       if (!v) {

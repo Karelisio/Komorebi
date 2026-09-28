@@ -27,7 +27,7 @@ export function canPlace(
   ignoreId?: string,
 ): PlaceResult {
   const e = CATALOG[kind];
-  if (x < 30 || x > WORLD.width - 30 || y < WORLD.horizon + 50 || y > WORLD.height - 20)
+  if (x < 20 || x > WORLD.width - 20 || y < 40 || y > WORLD.height - 20)
     return { ok: false, reason: 'bounds' };
   const onWater = ponds.some((p) => pointInPolygon({ x, y }, p.points));
   if (e.onWater && !onWater) return { ok: false, reason: 'dry' };

@@ -4,7 +4,6 @@ import { KoiSystem } from '@/render/KoiSystem';
 import { LilySystem } from '@/render/LilySystem';
 import { Scene } from '@/render/Scene';
 import { WeatherSystem, type NatureEvent } from '@/render/WeatherSystem';
-import { ZoneSystem } from '@/render/ZoneSystem';
 import { useGame } from '@/state/game';
 import { useUi } from '@/state/ui';
 import { useSettings } from '@/state/settings';
@@ -46,7 +45,6 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
   scene.addSystem(kois);
   const lilies = new LilySystem(scene.ponds);
   scene.addSystem(lilies);
-  scene.addSystem(new ZoneSystem(scene, kois, lilies));
   scene.addSystem(weather);
   scene.bindGestures(createController(scene, garden, kois, hooks));
   if (useDebug.getState().enabled)

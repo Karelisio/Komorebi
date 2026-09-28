@@ -1,17 +1,16 @@
 import type { Container, Texture } from 'pixi.js';
 import { createShaderMesh, quadGeometry, vec2, vec3 } from './gl';
-import { GARDEN_PATH, PATH_SAMPLES, smoothPath, WORLD } from '@/world/layout';
+import { PATH_SAMPLES, WORLD } from '@/world/layout';
 import { GROUND_FRAGMENT } from './shaders/ground';
 
 export class GroundView {
   readonly sm;
 
   constructor(parent: Container, noise: Texture, grass: Texture) {
-    const top = WORLD.horizon - 30;
     this.sm = createShaderMesh({
       name: 'ground',
       fragment: GROUND_FRAGMENT,
-      geometry: quadGeometry(-400, top, WORLD.width + 800, WORLD.height - top + 400),
+      geometry: quadGeometry(-300, -300, WORLD.width + 600, WORLD.height + 600),
       textures: { uNoise: noise.source, uGrass: grass.source },
       uniforms: {
         uTint: { type: 'vec3<f32>', value: vec3(1, 1, 1) },
@@ -30,7 +29,8 @@ export class GroundView {
         uHorizon: { type: 'f32', value: WORLD.horizon },
         uPath: {
           type: 'vec2<f32>',
-          value: new Float32Array(smoothPath(GARDEN_PATH, PATH_SAMPLES).flatMap((p) => [p.x, p.y])),
+          // Pas d'allée dans la vue rapprochée
+          value: new Float32Array(PATH_SAMPLES * 2).fill(-9999),
           size: PATH_SAMPLES,
         },
       },

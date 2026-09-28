@@ -1,10 +1,13 @@
 import { mulberry32 } from '@/world/random';
 
-/** Dimensions du monde (unités monde ≈ px à zoom 1). */
-export const WORLD = { width: 1200, height: 2400, horizon: 520 } as const;
+/**
+ * Dimensions du monde (unités monde ≈ px à zoom 1) : vue rapprochée du bassin,
+ * vu de trois quarts ; la berge l'entoure. Pas d'horizon visible.
+ */
+export const WORLD = { width: 680, height: 1500, horizon: -600 } as const;
 
-/** Vue par défaut : centre et largeur visible. */
-export const DEFAULT_VIEW = { x: 600, y: 840, width: 760 } as const;
+/** Vue par défaut : centre et largeur visible (tout le monde tient dans l'écran). */
+export const DEFAULT_VIEW = { x: 340, y: 750, width: 680 } as const;
 
 export interface Point {
   x: number;
@@ -73,20 +76,6 @@ export function pondDepthAt(shape: PondShape, p: Point): number {
   return Math.min(1, Math.hypot(dx, dy));
 }
 
-/** Allée de gravier (10 points) : du premier plan vers le mur, en contournant le bassin. */
-export const GARDEN_PATH: Point[] = [
-  { x: 140, y: 2380 },
-  { x: 90, y: 2120 },
-  { x: 150, y: 1870 },
-  { x: 95, y: 1620 },
-  { x: 150, y: 1380 },
-  { x: 120, y: 1150 },
-  { x: 235, y: 960 },
-  { x: 400, y: 840 },
-  { x: 430, y: 700 },
-  { x: 560, y: 590 },
-];
-
 /** Échantillonne une courbe de Catmull-Rom passant par les points. */
 export function smoothPath(pts: readonly Point[], samples: number): Point[] {
   const out: Point[] = [];
@@ -112,5 +101,20 @@ export function smoothPath(pts: readonly Point[], samples: number): Point[] {
 
 export const PATH_SAMPLES = 24;
 
-export const MAIN_POND = makePondShape('main', 600, 1190, 330, 205, 7);
-export const SECOND_POND = makePondShape('second', 360, 1690, 215, 118, 13);
+export const MAIN_POND = makePondShape('main', 340, 745, 225, 450, 3);
+/** Ancien second bassin (hors champ), conservé pour les anciennes sauvegardes. */
+export const SECOND_POND = makePondShape('second', 340, 2600, 120, 80, 13);
+
+/** Emplacements de décor sur la berge (pied des objets). */
+export const BANK_SLOTS: readonly Point[] = [
+  { x: 92, y: 300 },
+  { x: 596, y: 320 },
+  { x: 58, y: 520 },
+  { x: 622, y: 560 },
+  { x: 50, y: 760 },
+  { x: 628, y: 790 },
+  { x: 60, y: 1000 },
+  { x: 618, y: 1010 },
+  { x: 104, y: 1215 },
+  { x: 580, y: 1200 },
+];

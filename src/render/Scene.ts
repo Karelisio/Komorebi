@@ -1,4 +1,4 @@
-import { Application, Container, Sprite, type Renderer } from 'pixi.js';
+import { Application, Container, Sprite, Texture, type Renderer } from 'pixi.js';
 import { Camera } from '@/engine/camera';
 import { GestureController, type GestureHandlers, type ScreenPoint } from '@/engine/gestures';
 import { Loop } from '@/engine/loop';
@@ -18,17 +18,15 @@ import {
 import type { SeasonState } from '@/world/season';
 import type { Lighting, SkyState } from '@/world/sky';
 import type { WeatherState } from '@/world/weatherTypes';
-import { Canopy, GardenWall, Mountains, SkyClouds } from './Backdrop';
-import { setQuad, setVec } from './gl';
-import { GroundView } from './GroundView';
+import { Canopy } from './Backdrop';
+import { setVec } from './gl';
 import { DEFAULT_VIEW, MAIN_POND, WORLD } from '@/world/layout';
 import { LightLayer } from './LightLayer';
+import { paintBank, paintBed } from './painting';
 import { PondView } from './PondView';
 import { QUALITY, type QualityLevel, type QualityProfile } from './quality';
-import { SkyLayer } from './SkyLayer';
 import { sharedTextures } from './textures';
-import type { TreeLook } from './trees';
-import { DEFAULT_SUN, TreeView, type SunLight } from './TreeView';
+import { DEFAULT_SUN, type SunLight } from './TreeView';
 
 export interface SceneEnv {
   sky: SkyState;
@@ -54,32 +52,22 @@ export interface FrameLight {
   night: number;
 }
 
-const FAR = 0.22;
 const PROFILE = typeof location !== 'undefined' && location.search.includes('prof=1');
 const NO_RAYS = typeof location !== 'undefined' && location.search.includes('norays');
-const MID = 0.55;
 
 export interface SceneSystem {
   update(dt: number, time: number, light: FrameLight, env: SceneEnv): void;
   destroy?(): void;
 }
 
-interface FixedTree {
-  view: TreeView;
-  look: Omit<TreeLook, 'season' | 'snow' | 'thirst'>;
-  phase: number;
-}
-
 export class Scene {
   readonly camera = new Camera({ x: 0, y: 0, width: WORLD.width, height: WORLD.height });
   readonly loop = new Loop();
   readonly stage: Container;
+  /** Couche écran au-dessus du monde (ombres d'oiseaux, reflets d'étoiles filantes). */
   readonly skyLayer: Container = new Container();
-  readonly farLayer: Container = new Container();
-  readonly midLayer: Container = new Container();
-  /** Couche monde (caméra) : sol, bassins, objets triés par profondeur. */
+  /** Couche monde (caméra) : berge, bassin, objets triés par profondeur. */
   readonly world: Container = new Container();
-  readonly groundLayer: Container = new Container();
   readonly pondLayer: Container = new Container();
   readonly objects: Container = new Container();
   readonly worldFx: Container = new Container();
@@ -87,18 +75,14 @@ export class Scene {
   readonly screenFx: Container = new Container();
   readonly overlay: Container = new Container();
 
-  readonly sky: SkyLayer;
   readonly light: LightLayer;
-  readonly ground: GroundView;
-  readonly mountains = new Mountains();
-  readonly wall = new GardenWall();
+  /** Berge peinte à l'aquarelle (repeinte à chaque changement de saison). */
+  readonly bank = new Sprite();
+  private bankKey = '';
   readonly canopy: Canopy;
-  readonly clouds: SkyClouds;
   readonly ponds: PondView[] = [];
   readonly vignette: Sprite;
   private readonly systems: SceneSystem[] = [];
-  private readonly fixedTrees: FixedTree[] = [];
-  fixedCanopies: (readonly [number, number, number, number])[] = [];
   private gestures: GestureController | null = null;
   env: SceneEnv | null = null;
   private baseZoom = 1;
@@ -127,12 +111,7 @@ export class Scene {
     this.quality = QUALITY[qualityLevel];
     this.stage = app.stage;
     const tex = sharedTextures();
-    this.clouds = new SkyClouds(tex.clouds);
-    this.sky = new SkyLayer(this.skyLayer, this.clouds.container);
-    this.midLayer.addChild(this.wall.container);
-    this.wall.buildHedge(tex.clumps.leaf, this.objects);
-    this.ground = new GroundView(this.groundLayer, tex.noise, tex.grass);
-    this.world.addChild(this.groundLayer, this.pondLayer, this.objects, this.worldFx);
+    this.world.addChild(this.pondLayer, this.bank, this.objects, this.worldFx);
     this.objects.sortableChildren = true;
     this.canopy = new Canopy(tex.maple);
     this.fgLayer.addChild(this.canopy.container);
@@ -140,17 +119,14 @@ export class Scene {
     this.vignette = new Sprite(tex.vignette);
     this.overlay.addChild(this.vignette);
     this.stage.addChild(
-      this.skyLayer,
-      this.farLayer,
-      this.midLayer,
       this.world,
+      this.skyLayer,
       this.fgLayer,
       this.screenFx,
       this.overlay,
     );
 
-    this.addPond(new PondView(MAIN_POND, tex, this.pondQuality()));
-    this.addFixedTrees();
+    this.addPond(new PondView(MAIN_POND, { bed: paintBed(MAIN_POND) }, this.pondQuality()));
   }
 
   static async create(host: HTMLElement, quality: QualityLevel): Promise<Scene> {
@@ -202,34 +178,6 @@ export class Scene {
     this.systems.push(s);
   }
 
-  private addFixedTrees(): void {
-    const specs: FixedTree['look'][] = [
-      { species: 'maple', seed: 12, growth: 1, prune: 0.15, height: 470 },
-      { species: 'pine', seed: 31, growth: 1, prune: 0.6, height: 380 },
-      { species: 'bamboo', seed: 8, growth: 1, prune: 0, height: 420 },
-      { species: 'cherry', seed: 21, growth: 1, prune: 0.1, height: 380 },
-    ];
-    const positions = [
-      { x: 115, y: 960 },
-      { x: 1125, y: 1090 },
-      { x: 1170, y: 690 },
-      { x: 1065, y: 790 },
-    ];
-    specs.forEach((look, i) => {
-      const view = new TreeView();
-      const p = positions[i]!;
-      view.root.position.set(p.x, p.y);
-      view.root.zIndex = p.y;
-      this.objects.addChild(view.root);
-      this.fixedTrees.push({ view, look, phase: i * 1.7 });
-    });
-    this.fixedCanopies = specs.map((look, i) => {
-      const p = positions[i]!;
-      return [p.x + 20, p.y + 10, look.height * 0.5, look.height * 0.22] as const;
-    });
-    this.ground.setCanopies(this.fixedCanopies);
-  }
-
   setQuality(level: QualityLevel): void {
     this.quality = QUALITY[level];
     this.renderer.resolution = Math.min(window.devicePixelRatio || 1, this.quality.maxResolution);
@@ -262,9 +210,9 @@ export class Scene {
     this.height = h;
     this.renderer.resize(w, h);
     this.camera.resize(w, h);
+    // Cadrage fixe : tout le bassin tient dans l'écran, zoom limité
     this.baseZoom = Math.max(w / DEFAULT_VIEW.width, this.camera.minZoom);
-    this.camera.maxZoom = this.baseZoom * 3.2;
-    this.sky.resize(w, h);
+    this.camera.maxZoom = this.baseZoom * 1.6;
     this.light.resize(w, h);
     this.vignette.width = w;
     this.vignette.height = h;
@@ -276,24 +224,6 @@ export class Scene {
 
   stop(): void {
     this.loop.stop();
-  }
-
-  /** Ordonnée écran d'un point de la couche lointaine (ciel, oiseaux). */
-  skyToScreenY(worldY: number): number {
-    return this.farLayer.position.y + worldY * this.farLayer.scale.y;
-  }
-
-  /** Transforme une couche parallax : f = 1 suit la caméra, f < 1 défile moins vite. */
-  private placeLayer(layer: Container, f: number): { zoom: number; ox: number; oy: number } {
-    const cam = this.camera;
-    const zoom = this.baseZoom * Math.pow(cam.zoom / this.baseZoom, f);
-    const cx = cam.x * f + DEFAULT_VIEW.x * (1 - f);
-    const cy = cam.y * f + DEFAULT_VIEW.y * (1 - f);
-    const ox = this.width / 2 - cx * zoom;
-    const oy = this.height / 2 - cy * zoom;
-    layer.scale.set(zoom);
-    layer.position.set(ox, oy);
-    return { zoom, ox, oy };
   }
 
   private computeLight(env: SceneEnv): FrameLight {
@@ -369,70 +299,28 @@ export class Scene {
     this.lastLight = L;
     const { sky, weather, season } = env;
 
-    // Parallax
-    const far = this.placeLayer(this.farLayer, FAR);
-    this.placeLayer(this.midLayer, MID);
-    this.placeLayer(this.world, 1);
+    this.world.scale.set(cam.zoom);
+    this.world.position.set(this.width / 2 - cam.x * cam.zoom, this.height / 2 - cam.y * cam.zoom);
     const w = this.width;
     const h = this.height;
-    const horizonY = far.oy + WORLD.horizon * far.zoom;
-    const skyH = Math.max(120, horizonY);
     this.fgLayer.position.set(
       -(cam.x - DEFAULT_VIEW.x) * cam.zoom * 0.25,
       -(cam.y - DEFAULT_VIEW.y) * cam.zoom * 0.35,
     );
 
-    // Ciel
-    const u = this.sky.u;
-    setQuad(this.sky.sm.mesh.geometry, 0, 0, w, Math.min(h, horizonY + 20));
-    u.uHorizon = horizonY;
-    u.uSkyHeight = skyH;
-    setVec(u.uTop, L.skyTop);
-    setVec(u.uHorizonCol, L.skyHorizon);
-    const toScreen = (az: number, alt: number) => {
-      const d = ((az - sky.viewAzimuth + 540) % 360) - 180;
-      return { x: w / 2 + (d / 70) * w * 0.5, y: horizonY - (alt / 50) * skyH, d };
-    };
-    const sunS = toScreen(sky.sunAzimuth, sky.sunAltitude);
+    // Direction du soleil et de la lune, relative à l'orientation du jardin
+    const rel = (az: number) => ((az - sky.viewAzimuth + 540) % 360) - 180;
+    const sunD = rel(sky.sunAzimuth);
     {
-      const d = (sunS.d * Math.PI) / 180;
+      const d = (sunD * Math.PI) / 180;
       const alt = Math.max(3, sky.sunAltitude);
-      this.sun.side = clamp(sunS.d / 70, -1, 1);
+      this.sun.side = clamp(sunD / 70, -1, 1);
       this.sun.dx = -Math.sin(d);
       this.sun.dy = Math.cos(d);
       this.sun.len = Math.min(3, 1 / Math.tan((alt * Math.PI) / 180));
       this.sun.strength = L.sunStrength * clamp((sky.sunAltitude + 2) / 6);
     }
-    setVec(u.uSunPos, [sunS.x, sunS.y]);
-    setVec(u.uSunCol, L.sunColor);
-    u.uSunVis = clamp((sky.sunAltitude + 3) / 6) * (1 - L.overcast * 0.8);
-    const moonS = toScreen(sky.moonAzimuth, sky.moonAltitude);
-    setVec(u.uMoonPos, [moonS.x, moonS.y]);
-    u.uMoonPhase = sky.moonPhase;
-    u.uMoonVis =
-      clamp((sky.moonAltitude + 1) / 4) * (1 - L.overcast * 0.85) * (1 - sky.daylight * 0.6);
-    u.uMoonSize = Math.max(10, w * 0.035);
-    u.uStars = sky.stars * (1 - L.overcast * 0.95);
-    u.uTime = t;
-    // Quelques nuages de beau temps même par ciel clair
-    u.uClouds = clamp(weather.cloudCover / 100);
-    const cloudLit = mixRgb(L.skyHorizon, [1, 1, 1], 0.55 * sky.daylight);
-    setVec(u.uCloudLit, mulRgb(cloudLit, mixRgb([1, 1, 1], L.ambient, 0.5)));
-    setVec(u.uCloudShade, scaleRgb(mixRgb(L.skyTop, L.ambient, 0.5), 0.72));
-    this.clouds.update(
-      dt,
-      w,
-      horizonY,
-      skyH,
-      clamp(weather.cloudCover / 100),
-      L.wind,
-      mulRgb(cloudLit, mixRgb([1, 1, 1], L.ambient, 0.5)),
-      scaleRgb(mixRgb(L.skyTop, L.ambient, 0.5), 0.72),
-    );
-    u.uWind = 0.4 + L.wind * 3;
-    setVec(u.uStarShift, [((t * 0.2) % 1000) + sky.sunAzimuth * 3, 0]);
-    u.uOctaves = this.quality.skyOctaves;
-    // Orage lointain
+    // Orage : éclairs sur toute la scène
     if (weather.thunder) {
       this.nextFlash -= dt;
       if (this.nextFlash <= 0) {
@@ -442,69 +330,41 @@ export class Scene {
       }
     }
     this.flash = Math.max(0, this.flash - dt * 2.8);
-    u.uFlash = this.flash * (0.5 + 0.5 * Math.sin(t * 60)) * 0.5;
-    // Montagnes
-    const m = this.sky.m;
-    setQuad(this.sky.mountains.mesh.geometry, 0, 0, w, Math.min(h, horizonY + 20));
-    m.uHorizon = horizonY;
-    m.uSkyHeight = skyH;
-    m.uOctaves = this.quality.skyOctaves;
-    m.uCamX = (cam.x - DEFAULT_VIEW.x) * cam.zoom;
-    setVec(m.uMtn, mulRgb(hexToRgb('#34465c'), mixRgb(L.ambient, [1, 1, 1], 0.1)));
-    setVec(m.uForest, mulRgb(hexToRgb('#24392f'), L.ambient));
-    setVec(m.uHaze, mixRgb(L.skyHorizon, L.skyTop, 0.12 + L.fog * 0.1));
-    m.uSnowLine = 0.52 - season.winter * 0.3 - weather.snowCover * 0.1;
-    m.uSunSide = clamp(sunS.d / 60, -1, 1) || 0.4;
-    setVec(m.uSunLit, scaleRgb(L.sunColor, L.sunStrength));
 
     // Décor
-    this.wall.updateSeason(season);
-    this.midLayer.tint = rgbToHex(mixRgb(L.ambient, L.skyHorizon, 0.15 + L.fog * 0.4));
-    this.world.tint = rgbToHex(L.ambient);
+    const flash = this.flash * (0.5 + 0.5 * Math.sin(t * 60)) * 0.35;
+    this.world.tint = rgbToHex(mixRgb(L.ambient, [1, 1, 1], flash));
     this.fgLayer.tint = rgbToHex(scaleRgb(L.ambient, 0.55 + 0.25 * L.sunStrength));
     this.canopy.build(w, season);
     this.canopy.update(t, L.wind);
-    const f0 = PROFILE ? performance.now() : 0;
-    this.updateFixedTrees(t, env, L);
-    if (PROFILE) this.prof('fixedTrees', f0);
 
-    // Sol
-    const g = this.ground.sm.u;
-    setVec(g.uAmbient, L.ambient);
-    setVec(g.uSunCol, L.sunColor);
-    g.uSun = L.sunStrength;
-    g.uSnow = weather.snowCover;
-    g.uWet = weather.wetness;
-    g.uTime = t;
-    g.uWind = L.wind;
-    // Teinte saisonnière de l'herbe
-    const tSpring: RGB = [1.05, 1.12, 0.9];
-    const tSummer: RGB = [0.95, 1.02, 0.88];
-    const tAutumn: RGB = [1.18, 1.02, 0.7];
-    const tWinter: RGB = [0.92, 0.9, 0.78];
-    let tint =
-      season.season === 'spring'
-        ? tSpring
-        : season.season === 'summer'
-          ? tSummer
-          : season.season === 'autumn'
-            ? tAutumn
-            : tWinter;
-    tint = mixRgb(tint, tAutumn, season.autumn * 0.5);
-    setVec(g.uTint, tint);
-    setVec(g.uHazeCol, mixRgb(L.skyHorizon, L.ambient, 0.35));
-    const wd = ((weather.windDir + 90) * Math.PI) / 180;
-    setVec(g.uWindDir, [Math.cos(wd), Math.sin(wd) * 0.6]);
+    // Berge peinte : repeinte quand la saison ou la neige changent nettement
+    const bankKey = `${season.season}:${Math.round(season.autumn * 2)}:${Math.round(weather.snowCover * 3)}`;
+    if (bankKey !== this.bankKey) {
+      this.bankKey = bankKey;
+      const old = this.bank.texture;
+      const scale = this.quality.level > 1 ? 1.25 : this.quality.level > 0 ? 1 : 0.75;
+      this.bank.texture = paintBank({
+        width: WORLD.width,
+        height: WORLD.height,
+        shape: MAIN_POND,
+        season,
+        snow: weather.snowCover,
+        scale,
+      });
+      this.bank.scale.set(1 / scale);
+      if (old !== Texture.EMPTY) old.destroy(true);
+    }
 
     // Eau
-    const sunAz = sunS.d * DEG;
+    const sunAz = sunD * DEG;
     const alt = Math.max(2, sky.sunAltitude) * DEG;
     const sunDir = [
       Math.sin(sunAz) * Math.cos(alt),
       -Math.cos(sunAz) * Math.cos(alt),
       Math.sin(alt),
     ];
-    const mAz = moonS.d * DEG;
+    const mAz = rel(sky.moonAzimuth) * DEG;
     const mAlt = Math.max(2, sky.moonAltitude) * DEG;
     const moonDir = [
       Math.sin(mAz) * Math.cos(mAlt),
@@ -521,10 +381,10 @@ export class Scene {
       setVec(wu.uSunDir, sunDir);
       wu.uSunStrength = L.sunStrength * clamp(sky.sunAltitude / 4);
       // Colonne de scintillements vers le soleil (plus marquée quand il est bas et devant)
-      const front = clamp(1 - (Math.abs(sunS.d) - 50) / 50);
+      const front = clamp(1 - (Math.abs(sunD) - 50) / 50);
       const low = 0.35 + 0.65 * clamp(1 - sky.sunAltitude / 45);
       setVec(wu.uGlint, [
-        clamp(0.5 + (sunS.d / 70) * 0.55, -0.2, 1.2),
+        clamp(0.5 + (sunD / 70) * 0.55, -0.2, 1.2),
         0.07 + 0.1 * clamp(sky.sunAltitude / 40),
         L.sunStrength * clamp(sky.sunAltitude / 5) * (1 - L.overcast) * (0.25 + 0.75 * front) * low,
       ]);
@@ -565,20 +425,20 @@ export class Scene {
 
     // Lumière et brouillard
     const r = this.light.rays.u;
-    const side = clamp(sunS.d / 90, -1.3, 1.3);
+    const side = clamp(sunD / 90, -1.3, 1.3);
     setVec(r.uSrc, [w / 2 + side * w * 0.75, -h * (0.12 + 0.45 * clamp(sky.sunAltitude / 70))]);
     setVec(r.uSunCol, L.sunColor);
     r.uStrength = L.rays * (0.5 + 0.5 * season.foliage) * (1 + sky.golden * 0.9);
     r.uTime = t;
     r.uWind = L.wind;
     r.uHaze = L.fog;
-    r.uHorizon = horizonY;
+    r.uHorizon = -9999;
     this.light.rays.mesh.visible = r.uStrength > 0.01 && !NO_RAYS;
     const f = this.light.fog.u;
     f.uFog = L.fog;
     setVec(f.uFogCol, L.fogColor);
     f.uTime = t;
-    f.uHorizon = horizonY;
+    f.uHorizon = -9999;
     this.light.fog.mesh.visible = L.fog > 0.02;
     this.vignette.alpha = 0.7 + L.night * 0.3;
 
@@ -591,19 +451,6 @@ export class Scene {
   readonly profile: Record<string, number> = {};
   private prof(name: string, t0: number): void {
     this.profile[name] = (this.profile[name] ?? 0) * 0.97 + (performance.now() - t0) * 0.03;
-  }
-
-  private updateFixedTrees(t: number, env: SceneEnv, L: FrameLight): void {
-    for (const tr of this.fixedTrees) {
-      const look: TreeLook = {
-        ...tr.look,
-        season: env.season,
-        snow: env.weather.snowCover,
-        thirst: 0,
-      };
-      tr.view.set(look);
-      tr.view.sway(t, L.wind, tr.phase, this.sun);
-    }
   }
 
   /** Capture de l'image courante (mode photo). */
