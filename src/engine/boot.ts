@@ -27,6 +27,9 @@ export function catchUp(): AbsenceSummary | null {
 
 export async function boot(): Promise<BootResult> {
   const settings = await loadSettings();
+  // Qualité forcée par l'URL (mesures de performance)
+  const q = new URLSearchParams(window.location.search).get('quality');
+  if (q === 'low' || q === 'medium' || q === 'high') settings.quality = q;
   useSettings.setState(settings);
   setLang(settings.lang);
 

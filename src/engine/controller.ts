@@ -9,6 +9,7 @@ import { t } from '@/i18n';
 import { clock } from './clock';
 import type { GestureHandlers, ScreenPoint } from './gestures';
 import { selectionTick, tick } from './haptics';
+import { audio } from '@/audio/engine';
 
 export interface ControllerHooks {
   onFeed?(): void;
@@ -52,6 +53,7 @@ export function createController(
       if (pond) {
         pond.touch(w.x, w.y, 1.1);
         tick('light', 120);
+        audio.play('touch', 0.5, 0.85 + Math.random() * 0.3);
         hooks.onWaterTouch?.();
       }
       hooks.onInteract?.();
@@ -74,6 +76,7 @@ export function createController(
         if (o && useGame.getState().pruneObject(o.id)) {
           garden.pruneFx(o);
           tick('medium');
+          audio.play('rake', 0.4, 1.6);
         } else if (o) showToast(t('garden.cannotPrune'));
         return;
       }
@@ -90,6 +93,7 @@ export function createController(
         if (res) {
           garden.harvestFx(o);
           tick('light');
+          audio.play('harvest', 0.7);
           hooks.onHarvest?.(res.petals);
           showToast(
             res.seed
@@ -105,6 +109,7 @@ export function createController(
         return;
       }
       if (kois.feedAt(w.x, w.y)) {
+        audio.play('feed', 0.6, 0.9 + Math.random() * 0.2);
         hooks.onFeed?.();
         return;
       }
@@ -156,6 +161,7 @@ export function createController(
         const d = garden.sand.rake(w.x, w.y);
         if (d > 0) {
           selectionTick();
+          if (Math.random() < 0.35) audio.play('rake', 0.35, 0.8 + Math.random() * 0.4);
           hooks.onRake?.(d);
         }
       } else if (dragKind === 'ghost') updateGhost(w.x, w.y);

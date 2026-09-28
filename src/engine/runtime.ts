@@ -8,6 +8,8 @@ import { ZoneSystem } from '@/render/ZoneSystem';
 import { useGame } from '@/state/game';
 import { useSettings } from '@/state/settings';
 import { useWorld } from '@/state/world';
+import { useTheme } from '@/theme/theme';
+import { hexToRgb } from '@/world/math';
 import { currentWeather, refreshWeather } from '@/world/weatherService';
 import { weatherPreset } from '@/world/weatherTypes';
 import { clock } from './clock';
@@ -77,9 +79,15 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
     10 * 60_000,
   );
 
+  const applyAccent = () => {
+    scene.accent = useSettings.getState().accentTint ? hexToRgb(useTheme.getState().accent) : null;
+  };
+  applyAccent();
+  const unsubTheme = useTheme.subscribe(applyAccent);
   const unsubSettings = useSettings.subscribe((s, prev) => {
     if (s.quality !== prev.quality) scene.setQuality(s.quality);
     if (s.fpsCap !== prev.fpsCap) scene.loop.setFpsCap(s.fpsCap);
+    if (s.accentTint !== prev.accentTint) applyAccent();
   });
 
   const cam = useDebug.getState().camera;
@@ -96,6 +104,7 @@ export async function startRuntime(host: HTMLElement, hooks: RuntimeHooks = {}):
       clearInterval(timer);
       clearInterval(weatherTimer);
       unsubSettings();
+      unsubTheme();
       scene.destroy();
     },
   };

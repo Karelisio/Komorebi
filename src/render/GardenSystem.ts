@@ -6,7 +6,7 @@ import { SAND_ZONE } from '@/garden/placement';
 import { useGame } from '@/state/game';
 import type { GardenObject } from '@/state/types';
 import { useUi } from '@/state/ui';
-import { clamp } from '@/world/math';
+import { clamp, mixRgb, rgbToHex } from '@/world/math';
 import { drawDecor, decorLookKey, type DecorLook } from './decor';
 import { Particles } from './particles';
 import { SandView } from './SandView';
@@ -209,6 +209,9 @@ export class GardenSystem implements SceneSystem {
         const flicker =
           0.85 + 0.15 * Math.sin(time * 7 + v.phase) * Math.sin(time * 3.1 + v.phase * 2);
         v.glow.alpha = clamp(night * 1.2 - 0.1) * flicker;
+        v.glow.tint = this.scene.accent
+          ? rgbToHex(mixRgb([1, 0.75, 0.44], this.scene.accent, 0.35))
+          : 0xffc070;
         v.glow.scale.set((1.1 + night * 0.6) * flicker);
       }
       if (v.sparkle) {
@@ -219,6 +222,7 @@ export class GardenSystem implements SceneSystem {
         v.sparkle.rotation = Math.sin(time + v.phase) * 0.6;
       }
     }
+    this.scene.lanterns = this.lights;
     this.sand.update(env.weather.snowCover, env.weather.wetness);
     this.fx.update(dt, wind * 20);
     this.updateGhost();

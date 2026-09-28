@@ -13,6 +13,11 @@ export class Loop {
   running = false;
   /** Moyenne glissante du temps de frame (ms), pour l'ajustement de qualité. */
   frameMs = 16;
+  /** Moyenne glissante de l'intervalle réel entre deux frames (ms). */
+  intervalMs = 16;
+  get targetMs(): number {
+    return this.minFrameMs;
+  }
 
   setFpsCap(fps: 30 | 60): void {
     this.minFrameMs = 1000 / fps;
@@ -45,6 +50,7 @@ export class Loop {
     // Tolérance de 2 ms pour ne pas sauter une frame à cause du jitter vsync.
     if (this.acc < this.minFrameMs - 2) return;
     const dtMs = Math.min(this.acc, 100);
+    if (dtMs < 100) this.intervalMs = this.intervalMs * 0.95 + dtMs * 0.05;
     this.acc = 0;
     const start = performance.now();
     const dt = dtMs / 1000;

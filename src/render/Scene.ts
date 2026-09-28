@@ -55,6 +55,7 @@ export interface FrameLight {
 }
 
 const FAR = 0.22;
+const PROFILE = typeof location !== 'undefined' && location.search.includes('prof=1');
 const NO_RAYS = typeof location !== 'undefined' && location.search.includes('norays');
 const MID = 0.55;
 
@@ -106,6 +107,12 @@ export class Scene {
   private nextFlash = 5;
   quality: QualityProfile;
   lastLight: FrameLight | null = null;
+  /** Couleur d'accent de l'interface appliquée légèrement au brouillard et aux lanternes. */
+  accent: RGB | null = null;
+  /** Lanternes (x, y, intensité) pour leur reflet dans l'eau. */
+  lanterns: { x: number; y: number }[] = [];
+  /** Appelé à chaque éclair (pour le tonnerre). */
+  onThunder?: () => void;
   /** Échelle de l'UI (pour savoir si la vue est tactile). */
   width = 1;
   height = 1;
@@ -302,7 +309,8 @@ export class Scene {
     const sunStrength = sky.daylight * (1 - overcast * 0.85);
     const moonVisible = clamp((sky.moonAltitude + 2) / 10) * (1 - overcast * 0.9);
     const fogBase = clamp(weather.fog + rainy * 0.25);
-    const fogColor = mixRgb(skyHorizon, ambient, 0.4);
+    let fogColor = mixRgb(skyHorizon, ambient, 0.4);
+    if (this.accent) fogColor = mixRgb(fogColor, this.accent, 0.22);
     return {
       ambient,
       skyTop,
@@ -319,9 +327,38 @@ export class Scene {
     };
   }
 
+  private slowTime = 0;
+  private fastTime = 0;
+
+  /** Résolution adaptative : baisse si l'appareil n'atteint pas la cadence visée, remonte s'il a de la marge. */
+  private adaptResolution(dt: number): void {
+    // Désactivée sous automatisation (captures en rendu logiciel)
+    if (navigator.webdriver) return;
+    const target = this.loop.targetMs;
+    const r = this.renderer.resolution;
+    const max = Math.min(window.devicePixelRatio || 1, this.quality.maxResolution);
+    if (this.loop.intervalMs > target * 1.3) {
+      this.slowTime += dt;
+      this.fastTime = 0;
+    } else if (this.loop.intervalMs < target * 1.05) {
+      this.fastTime += dt;
+      this.slowTime = 0;
+    }
+    if (this.slowTime > 4 && r > 0.75) {
+      this.renderer.resolution = Math.max(0.75, r - 0.25);
+      this.resize();
+      this.slowTime = 0;
+    } else if (this.fastTime > 25 && r < max) {
+      this.renderer.resolution = Math.min(max, r + 0.25);
+      this.resize();
+      this.fastTime = 0;
+    }
+  }
+
   private frame(dt: number): void {
     const env = this.env;
     if (!env) return;
+    this.adaptResolution(dt);
     this.time += dt;
     const t = this.time;
     const cam = this.camera;
@@ -390,6 +427,7 @@ export class Scene {
       if (this.nextFlash <= 0) {
         this.flash = 1;
         this.nextFlash = 6 + Math.random() * 14;
+        this.onThunder?.();
       }
     }
     this.flash = Math.max(0, this.flash - dt * 2.8);
@@ -415,7 +453,9 @@ export class Scene {
     this.fgLayer.tint = rgbToHex(scaleRgb(L.ambient, 0.55 + 0.25 * L.sunStrength));
     this.canopy.build(w, season);
     this.canopy.update(t, L.wind);
+    const f0 = PROFILE ? performance.now() : 0;
     this.updateFixedTrees(t, env, L);
+    if (PROFILE) this.prof('fixedTrees', f0);
 
     // Sol
     const g = this.ground.sm.u;
@@ -476,11 +516,32 @@ export class Scene {
       wu.uCaustics = L.sunStrength * (0.4 + 0.6 * (1 - L.overcast));
       wu.uWind = L.wind;
       wu.uFog = L.fog * 0.6;
+      // Reflet de la lanterne la plus proche du bassin, la nuit
+      let best: { x: number; y: number } | null = null;
+      let bd = Infinity;
+      for (const l of this.lanterns) {
+        const d = Math.hypot(l.x - p.shape.cx, (l.y - p.shape.cy) * 1.4);
+        if (d < bd) {
+          bd = d;
+          best = l;
+        }
+      }
+      const near = best && bd < p.shape.rx * 1.6;
+      setVec(
+        wu.uLantern,
+        near && best ? [best.x, best.y + 40, 70, clamp(L.night * 1.2 - 0.2) * 0.6] : [0, 0, 1, 0],
+      );
       setVec(wu.uFogCol, L.fogColor);
+      const p0 = PROFILE ? performance.now() : 0;
       p.update(dt, this.renderer);
+      if (PROFILE) this.prof('pond', p0);
     }
 
-    for (const s of this.systems) s.update(dt, t, L, env);
+    for (const s of this.systems) {
+      const t0 = PROFILE ? performance.now() : 0;
+      s.update(dt, t, L, env);
+      if (PROFILE) this.prof(s.constructor.name, t0);
+    }
 
     // Lumière et brouillard
     const r = this.light.rays.u;
@@ -501,7 +562,15 @@ export class Scene {
     this.light.fog.mesh.visible = L.fog > 0.02;
     this.vignette.alpha = 0.7 + L.night * 0.3;
 
+    const r0 = PROFILE ? performance.now() : 0;
     this.renderer.render(this.stage);
+    if (PROFILE) this.prof('render', r0);
+  }
+
+  /** Profilage par système (activé avec ?prof=1). */
+  readonly profile: Record<string, number> = {};
+  private prof(name: string, t0: number): void {
+    this.profile[name] = (this.profile[name] ?? 0) * 0.97 + (performance.now() - t0) * 0.03;
   }
 
   private updateFixedTrees(t: number, env: SceneEnv, L: FrameLight): void {

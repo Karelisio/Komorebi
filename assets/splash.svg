@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
+  <defs>
+    <radialGradient id="water" cx=".42" cy=".38" r=".75">
+      <stop offset="0" stop-color="#6fb0a8"/>
+      <stop offset=".55" stop-color="#2a6a6c"/>
+      <stop offset="1" stop-color="#14323a"/>
+    </radialGradient>
+    <linearGradient id="ray" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9b872" stop-opacity=".9"/>
+      <stop offset=".6" stop-color="#e9b872" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#e9b872" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="bg" cx=".5" cy=".45" r=".7">
+      <stop offset="0" stop-color="#2d5d5a"/>
+      <stop offset="1" stop-color="#1d2a44"/>
+    </radialGradient>
+  </defs>
+  <rect width="2732" height="2732" fill="#f5efe3"/>
+  <g transform="translate(1366,1250) scale(0.5) translate(-512,-530)">
+    <circle cx="512" cy="530" r="420" fill="url(#water)"/>
+    <ellipse cx="540" cy="560" rx="150" ry="138" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="5"/><ellipse cx="540" cy="560" rx="230" ry="211.60000000000002" fill="none" stroke="#fff" stroke-opacity="0.13" stroke-width="4"/><ellipse cx="540" cy="560" rx="310" ry="285.2" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="3"/><ellipse cx="540" cy="560" rx="380" ry="349.6" fill="none" stroke="#fff" stroke-opacity="0.07" stroke-width="2"/>
+    <g transform="translate(540,560) rotate(-38) scale(1.05)">
+  <defs>
+    <clipPath id="body"><path d="M235,0 C230,-50 170,-82 80,-84 C-10,-84 -110,-48 -190,-13 L-190,13 C-110,48 -10,84 80,84 C170,82 230,50 235,0 Z"/></clipPath>
+    <linearGradient id="shade" x1="0" y1="-84" x2="0" y2="84" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".28"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".3"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M-182,-10 C-230,-26 -272,-92 -312,-112 C-288,-44 -288,44 -312,112 C-272,92 -230,26 -182,10 Z" fill="#f5efe3" opacity=".75"/>
+    <g fill="#f5efe3" opacity=".85"><path d="M120,-66 C104,-138 50,-170 12,-162 C44,-128 70,-92 88,-70 Z"/><path d="M120,66 C104,138 50,170 12,162 C44,128 70,92 88,70 Z"/><path d="M-40,-62 C-60,-104 -92,-118 -112,-110 C-90,-92 -72,-74 -60,-58 Z"/><path d="M-40,62 C-60,104 -92,118 -112,110 C-90,92 -72,74 -60,58 Z"/></g>
+    <path d="M235,0 C230,-50 170,-82 80,-84 C-10,-84 -110,-48 -190,-13 L-190,13 C-110,48 -10,84 80,84 C170,82 230,50 235,0 Z" fill="#f5efe3"/>
+    <g clip-path="url(#body)" fill="#e2583e">
+      <path d="M200,-20 C190,-70 120,-80 95,-40 C80,-10 110,40 150,30 C185,22 205,10 200,-20 Z"/>
+      <path d="M40,-90 C-10,-60 -30,-20 -10,20 C10,55 60,70 70,30 C78,0 60,-30 70,-60 C75,-80 60,-95 40,-90 Z"/>
+      <path d="M-100,-30 C-130,-10 -140,20 -120,40 C-100,55 -80,30 -85,5 C-88,-12 -80,-35 -100,-30 Z"/>
+    </g>
+    <path d="M235,0 C230,-50 170,-82 80,-84 C-10,-84 -110,-48 -190,-13 L-190,13 C-110,48 -10,84 80,84 C170,82 230,50 235,0 Z" fill="url(#shade)"/>
+    <circle cx="205" cy="-30" r="6" fill="#1a1a1a"/>
+    <circle cx="205" cy="30" r="6" fill="#1a1a1a"/>
+  </g></g>
+  </g>
+  <text x="1366" y="1620" text-anchor="middle" font-family="sans-serif" font-size="96" letter-spacing="40" fill="#2b3a3a">KOMOREBI</text>
+</svg>

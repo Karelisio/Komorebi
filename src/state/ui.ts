@@ -27,6 +27,8 @@ export interface UiState {
   sheet: Sheet;
   toast: { key: string; text: string } | null;
   hudVisible: boolean;
+  meditationMinutes: number;
+  sleepUntil: number | null;
 }
 
 export const useUi = create<UiState>(() => ({
@@ -40,6 +42,8 @@ export const useUi = create<UiState>(() => ({
   sheet: 'none',
   toast: null,
   hudVisible: true,
+  meditationMinutes: 10,
+  sleepUntil: null,
 }));
 
 export function setTool(tool: Tool): void {
