@@ -165,7 +165,7 @@ export class WeatherSystem implements SceneSystem {
   }
 
   private updateFireflies(dt: number, time: number, nature: NatureActivity): void {
-    const target = Math.round(nature.fireflies * 26 * this.scene.quality.particles);
+    const target = Math.round(nature.fireflies * 34 * (0.5 + this.scene.quality.particles * 0.5));
     const tex = sharedTextures().glow;
     const pond = this.scene.ponds[0]?.shape;
     while (this.fireflies.length < target && pond) {
@@ -173,7 +173,7 @@ export class WeatherSystem implements SceneSystem {
       s.anchor.set(0.5);
       s.blendMode = 'add';
       s.tint = 0xd8ff8a;
-      s.scale.set(0.22);
+      s.scale.set(0.3);
       this.flyLayer.addChild(s);
       const a = Math.random() * Math.PI * 2;
       this.fireflies.push({

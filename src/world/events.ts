@@ -81,7 +81,7 @@ export function natureActivity(
 ): NatureActivity {
   const raining = weather.rain > 0.2;
   const dark = sky.sunAltitude < -4;
-  const warm = clamp((weather.temperature - 12) / 10);
+  const warm = clamp((weather.temperature - 8) / 10);
   const clear = 1 - clamp(weather.cloudCover / 100);
   const shower = activeMeteorShower(date);
 

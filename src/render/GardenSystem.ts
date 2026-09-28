@@ -22,6 +22,7 @@ interface ObjectView {
   tree: TreeView | null;
   key: string;
   glow: Sprite | null;
+  pool: Sprite | null;
   light: { x: number; y: number; radius: number } | null;
   sparkle: Sprite | null;
   phase: number;
@@ -137,6 +138,7 @@ export class GardenSystem implements SceneSystem {
           tree: null,
           key: '',
           glow: null,
+          pool: null,
           light: null,
           sparkle: null,
           phase: (o.seed % 100) / 10,
@@ -168,6 +170,13 @@ export class GardenSystem implements SceneSystem {
           v.glow.anchor.set(0.5);
           v.glow.blendMode = 'add';
           v.glow.tint = 0xffc070;
+          // Flaque de lumière chaude sur le sol
+          v.pool = new Sprite(sharedTextures().glow);
+          v.pool.anchor.set(0.5);
+          v.pool.blendMode = 'add';
+          v.pool.tint = 0xffb45a;
+          v.pool.position.set(0, 4);
+          v.root.addChildAt(v.pool, 0);
           v.root.addChild(v.glow);
         }
         v.glow.position.set(v.light.x, v.light.y);
@@ -212,7 +221,12 @@ export class GardenSystem implements SceneSystem {
         v.glow.tint = this.scene.accent
           ? rgbToHex(mixRgb([1, 0.75, 0.44], this.scene.accent, 0.35))
           : 0xffc070;
-        v.glow.scale.set((1.1 + night * 0.6) * flicker);
+        v.glow.scale.set((1.6 + night * 1.2) * flicker);
+        if (v.pool) {
+          v.pool.alpha = clamp(night * 1.1 - 0.15) * 0.55 * (0.92 + 0.08 * flicker);
+          v.pool.scale.set(4.2, 1.6);
+          v.pool.tint = v.glow.tint;
+        }
       }
       if (v.sparkle) {
         v.sparkle.position.set(
